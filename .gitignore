@@ -1,5 +1,6 @@
-data
+
 *.Rproj
 .Rproj.user
 .Rhistory
 .RData
+arcgis_data/
