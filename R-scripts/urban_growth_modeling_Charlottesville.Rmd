@@ -146,11 +146,14 @@ rast <- function(inRaster) {
     value = getValues(inRaster)) }
 ```
 
+
 # 2. Data Wrangling & Feature Engineering
 
 _JE Note: Land cover data link has been updated._
 
 In this section a considerable amount of vector and raster data is wrangled together into a regression-ready dataset. The following datasets are used:
+(maybe add a fixed effect variable of municipality)
+(maybe add a fixed effect variable of existing land use)
 
 2.2 - 2.3: Land cover data [downloaded](https://www.mrlc.gov/data/nlcd-land-cover-change-index-conus) from the Multi-Resolution Land Characteristics Consortium’s National Land Cover Database (NLCD) includes annual land cover and land cover change raster data for the entire country. These data are sampled to a 4,000 by 4,000 ft^2 fishnet.
 
@@ -184,19 +187,21 @@ Several raster layers have been provided for this analysis:
 
 Note that `lc_change` is projected as `NAD 1983 StatePlane Texas South FIPS 4205 Feet`. The original land cover raster is at a 30 meter by 30 meter resolution. The rasters provided are ultimately resampled up to 4000 feet by 4000 feet. The Houston metro area is quite large at roughly 10,000 square meters (`st_area(houstonMSA) * 3.58701e-8`). The original 30 by 30 meter data has nearly 58 million grid cells. A vector fishnet dataset of this size would be too computationally intensive. By resampling we gain some computational efficiency but lose some accuracy. Nevertheless, this approach works well for educational purposes.
 
-```{r load_data, warning = FALSE, message = FALSE, results = "hide"}
-houstonMSA <- 
-  st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/data/UGB_Chapter_data/houston_MSA.geojson") %>%
-  st_transform('ESRI:102741') # JE Note: added 'ESRI:' in front of projection
+!!!Note: Spatial Reference for Charlottesville is EPSG:2284: NAD83 / Virginia South (ftUS)
 
-lc_change = raster("https://github.com/mafichman/CPLN_675/raw/main/Week_14_15/data/UGB_Chapter_data/resam4k.tif")
+```{r load_data, warning = FALSE, message = FALSE, results = "hide"}
+CvilleMSA <- 
+  st_read("/Users/oliveratwood/Documents/GitHub/sprawl-forecasting/data/Cville_Hex.geojson") %>%
+  st_transform('EPSG:2284')
+
+lc_change = raster("/Users/oliveratwood/Documents/GitHub/sprawl-forecasting/data/LC_Change_2001_2019.tif")
 ```
 
 We now plot the MSA.
 
 ```{r plot_msa, warning= FALSE, message= FALSE}
 ggplot() +
-  geom_sf(data=houstonMSA) +
+  geom_sf(data=CvilleMSA) +
   geom_raster(data=rast(lc_change) %>% na.omit %>% filter(value > 0), 
               aes(x,y,fill=as.factor(value))) +
   scale_fill_viridis(direction = -1, discrete=TRUE, name ="Land Cover\nChange") +
@@ -208,11 +213,10 @@ ggplot() +
 Next, we reclassify the raster such that all the developed grid cell values receive a value of 1 and all other values receive a value of 0. This is done using a reclassify matrix. The matrix reads row by row. Row 1 says any grid cell ranging from 0 to 12 takes a value of 0; 13 or greater through 24, a value of 1; and all other values take 0.
 
 ```{r, warning = FALSE, message = FALSE}
-reclassMatrix <- 
-  matrix(c(
-    0,12,0,
-    12,24,1,
-    24,Inf,0),
+reclassMatrix <-  matrix(c(
+    0,2,0,
+    2,3,1,
+    3,Inf,0),
   ncol=3, byrow=T)
 
 reclassMatrix
@@ -229,7 +233,7 @@ lc_change2[lc_change2 < 1] <- NA
 names(lc_change2) <- "lc_change"
 
 ggplot() +
-  geom_sf(data=houstonMSA) +
+  geom_sf(data=CvilleMSA)+
   geom_raster(data=rast(lc_change2) %>% na.omit, 
               aes(x,y,fill=as.factor(value))) +
   scale_fill_viridis(discrete=TRUE, name ="Land Cover\nChange") + 
@@ -237,48 +241,52 @@ ggplot() +
   mapTheme
 ```
 
-Next, the fishnet is created at 4000 by 4000 foot resolution and subset it to the Houston MSA with `st_intersection`. 
+<!-- Next, the fishnet is created at 4000 by 4000 foot resolution and subset it to the Houston MSA with `st_intersection`.  -->
 
-```{r, warning = FALSE, message = FALSE}
-houstonMSA_fishnet <- 
-  st_make_grid(houstonMSA, 4000) %>%
-  st_sf()
+<!-- ```{r, warning = FALSE, message = FALSE} -->
+<!-- CvilleMSA <-  -->
+<!--   st_make_grid(houstonMSA, 4000) %>% -->
+<!--   st_sf() -->
 
-houstonMSA_fishnet <-
-  houstonMSA_fishnet[houstonMSA,]
-```
+<!-- CvilleMSA <- -->
+<!--   CvilleMSA[houstonMSA,] -->
+<!-- ``` -->
 
 The vector fishnet is then plotted. Note that this plot takes a bit of time to render because there are more than 18,000 polygons.
 
 ```{r, warning = FALSE, message= FALSE}
 ggplot() +
-  geom_sf(data=houstonMSA_fishnet) +
-  labs(title="Fishnet, 4000 Foot Resolution") +
+  geom_sf(data=CvilleMSA) +
+  labs(title="Hexagonal Fishnet, 250k sq ft cells") +
   mapTheme
 ```
 
-Then the raster is converted to points, which makes its joining to the vector fishnet a bit faster. Now to extract the raster values into the fishnet.
-
-The code below converts the raster to an `sf` point layer and then joins the points to the fishnet with `aggregate`. This works well because the raster and the fishnet are of the same spatial resolution. Finally, the fishnet variable `lc_change` is created that is `1` where new development has occurred and `0` where it has not. This is our dependent variable and encoded as a factor.
-
-To speed up the mapping process, fishnet polygons are converted to centroid points using the `xyC` function defined earlier  
-
+Convert raster to 'sf' point layer, join points to fishnet, and plot
 ```{r, warning = FALSE, message = FALSE}
+# The code below converts the raster to an `sf` point layer and then joins the points to the fishnet with `aggregate`. 
+# This works well because the raster and the fishnet are of the same spatial resolution.
 
+# The raster is converted to points, which makes its joining to the vector fishnet a bit faster.
+# convert the raster to an `sf` point layer
 changePoints <-
   rasterToPoints(lc_change2) %>%
   as.data.frame() %>%
-  st_as_sf(coords = c("x", "y"), crs = st_crs(houstonMSA_fishnet))
+  st_as_sf(coords = c("x", "y"), crs = st_crs(CvilleMSA))
 
+# join the points to the fishnet with `aggregate`.
+# Finally, the fishnet variable `lc_change` is created that is `1` where new development has occurred and `0` where it has not.
+# This is our dependent variable and encoded as a factor.
 fishnet <- 
-  aggregate(changePoints, houstonMSA_fishnet, sum) %>%
+  aggregate(changePoints, CvilleMSA, sum) %>%
   mutate(lc_change = ifelse(is.na(lc_change),0,1),
          lc_change = as.factor(lc_change))
 
+# Plot
+# To speed up the mapping process, fishnet polygons are converted to centroid points using the `xyC` function defined earlier  
 ggplot() +
-  geom_sf(data=houstonMSA) +
+  geom_sf(data=CvilleMSA) +
   geom_point(data=fishnet, 
-             aes(x=xyC(fishnet)$x, y=xyC(fishnet)$y, colour=lc_change)) +
+             aes(x=xyC(fishnet)$x, y=xyC(fishnet)$y, colour=lc_change), size = .1) +
   scale_colour_manual(values = palette2,
                       labels=c("No Change","New Development"),
                       name = "") +
@@ -292,10 +300,10 @@ ggplot() +
 It is reasonable to hypothesize that the propensity of new development is a function of existing land cover categories. In this section we identify these other land cover categories from 2001 and integrate each with the fishnet.
 
 ```{r, warning = FALSE, message = FALSE}
-lc_2001 <- raster("https://github.com/mafichman/CPLN_675/raw/main/Week_14_15/data/UGB_Chapter_data/lc_2001_4k.tif")
+lc_2001 <- raster("/Users/oliveratwood/Documents/GitHub/sprawl-forecasting/data/Cville_LC_2001.tif")
 
 ggplot() +
-  geom_sf(data=houstonMSA) +
+  geom_sf(data=CvilleMSA) +
   geom_raster(data=rast(lc_2001) %>% na.omit %>% filter(value > 0), 
               aes(x,y,fill=as.factor(value))) +
   scale_fill_viridis(discrete=TRUE, name ="") +
@@ -369,7 +377,7 @@ Note the inclusion of `st_cast` here which convert all geometries to `POLYGON`. 
 theRasterList <- c(developed,forest,farm,wetlands,otherUndeveloped,water)
 
 aggregatedRasters <-
-  aggregateRaster(theRasterList, houstonMSA_fishnet) %>%
+  aggregateRaster(theRasterList, CvilleMSA) %>%
   dplyr::select(developed,forest,farm,wetlands,otherUndeveloped,water) %>%
   mutate_if(is.numeric,as.factor)
 
@@ -379,8 +387,8 @@ aggregatedRasters %>%
   mutate(X = xyC(.)$x,
          Y = xyC(.)$y) %>%
   ggplot() +
-    geom_sf(data=houstonMSA) +
-    geom_point(aes(X,Y, colour=as.factor(value))) +
+    geom_sf(data=CvilleMSA) +
+    geom_point(aes(X,Y, colour=as.factor(value)), size = 0.1) +
     facet_wrap(~var) +
     scale_colour_manual(values = palette2,
                         labels=c("Other","Land Cover"),
@@ -391,184 +399,161 @@ aggregatedRasters %>%
 ```
 
 ## 2.4. Census Data
-
-Population and population change is obviously a critical demand-side component of predicting `Development_Demand`. Census data for both 2000 and 2010 can be downloaded quickly using the `tidycensus` package. As illustrated below, these data are downloaded at a census tract geography and thus, an approach is needed to reconcile tracts and fishnet geometries. This is accomplished using a technique called areal weighted interpolation.
-
-Recall, you will need a census API key to download the census data which must be input with `census_api_key`. First data is pulled for 2000 and reprojected.
-
-_MF Note: In your assignment, you will be using a different timeframe, and therefore you will use ACS data rather than decennial census data. Look at the materials from week 5 (Intro to SF and Tidyverse) and the Intro to R for Planners text to see how `get_acs` can be used to replace `get_decennial` in your workflow._
-## Census API Key
-
-You will need a "key" to access the Census API. You can find one at [their website](https://api.census.gov/data/key_signup.html).
-
-```{r load_key, warning = FALSE, eval = FALSE}
-census_api_key("a3ebdf1648b7fb21df55df7246d9642f040c0ee0", overwrite = TRUE)
-```
-
-## Set Tigris Options
-
-We want to set some options so that when we download data from the Census Bureau's Tigris spatial database, we get our data in `sf` format and we "cache" our downloads so they are stored on our machine.
-
-```{r tigris_options, warning = FALSE, cache = TRUE}
-options(tigris_class = "sf")
-options(tigris_use_cache = TRUE)
-```
-
-Call the Census API
-We use the get_acs function in tidycensus to query the API and get tract level-data for all of Philadelphia from the 2016 American Community Survey’s (ACS) 5-year estimates. Notice the different arguments for the function, and that they require certain types of info. For example, geography requires one of a finite list of answers, and they have to be formatted as character string.
-
-Remember the ?? function - you can learn about the parameters for get_acs this way. There is also a function called get_decennial which you can use for decennial census counts.
-
-We ask for data on our acs_vars for all tracts in Philadelphia County, PA in 2016. We ask for “wide” data (e.g. one variable per column, one row per tract) and we set geometry to FALSE. (Later, we will set geometry to true and get some spatial data.)
-
 ```{r}
-acsTractsPHL.2016 <- get_acs(geography = "tract",
-                             year = 2016, 
-                             variables = acs_vars, 
-                             geometry = FALSE, 
-                             state = "PA", 
-                             county = "Philadelphia", 
-                             output = "wide") 
+# Set API key
+census_api_key("20ad38c6d9e241be49ae3a1a6f74125448db674e", install = TRUE, overwrite = TRUE)
+
+# Define the variables you want to retrieve
+variables1 <- c("P001001", "H001001", "H003003", "P003002")
+names(variables1) <- c("total_population", "total_housing_units", "total_vacant_households", "total_white")
+
+variables2 <- c("P053001","P036021","P036044")
+names(variables2) <- c("median_household_income","Male Total graduate degree holders", "Female Total graduate degree holders")
+
+# Retrieve data
+data_2000_cv1 <- get_decennial(
+  geography = "block group",
+  year = 2000,
+  variables = variables1,
+  state = "VA",
+  county = "Charlottesville",
+  output = "wide",
+  geometry = TRUE
+)
+
+data_2000_cv2 <- get_decennial(
+  geography = "block group",
+  sumfile = 'sf3',
+  year = 2000,
+  variables = variables2,
+  state = "VA",
+  county = "Charlottesville",
+  output = "wide",
+  geometry = TRUE
+)
+
+
+data_2000_am1 <- get_decennial(
+  geography = "block group",
+  year = 2000,
+  variables = variables1,
+  state = "VA",
+  county = "Albemarle",
+  output = "wide",
+  geometry = TRUE
+)
+
+data_2000_am2 <- get_decennial(
+  geography = "block group",
+  sumfile = 'sf3',
+  year = 2000,
+  variables = variables2,
+  state = "VA",
+  county = "Albemarle",
+  output = "wide",
+  geometry = TRUE
+)
 ```
 
-Voila - now you have census data. Take a look and see what you have there - since it’s the ACS, they are estimates - so you’ll have data marked “E” for estimate, or “M” for margin of error.
-
-Let’s use a glimpse command to check it out
-glimpse(acsTractsPHL.2016)
-
-Clean Census Data
-The variable names that come with the stock Census data aren’t that helpful.
-
-You can use the rename function from dplyr to make the columns in your data intelligible.
+Join Census Data
 ```{r}
-acsTractsPHL.2016 <- acsTractsPHL.2016 %>%
-  rename (total_pop.2016 = B01001_001E,
-          total_HU.2016 = B25002_001E,
-          total_vacant.2016 = B25002_003E,
-          med_HH_Income.2016 = B19013_001E,
-          total_White.2016 = B02001_002E,
-          total_GradDeg.2016 = B06009_006E)
+# join the data
+cvam_2000_census1 <- rbind(data_2000_cv1, data_2000_am1)
+cvam_2000_census2 <- rbind(data_2000_cv2, data_2000_am2)
+
+cvam_2000_census <- st_join(cvam_2000_census1, 
+                            cvam_2000_census2[, c("median_household_income", "Male Total graduate degree holders", "Female Total graduate degree holders")], 
+                            join = st_equals)  %>%
+                    mutate(`total_graduate_degree_holders` = `Male Total graduate degree holders` + `Female Total graduate degree holders`) %>%
+                    select(-`Male Total graduate degree holders`, -`Female Total graduate degree holders`)
+
+
+
 ```
 
-
-
-Houston Census Data
-```{r, warning = FALSE, message = FALSE, results = "hide"}
-houstonPop00 <- 
-  get_decennial(geography = "tract", variables = "P001001", year = 2000,
-                state = 48, geometry = TRUE, 
-                county=c("Harris COunty","San Jacinto","Montgomery","Liberty","Waller",
-                         "Austin","Chambers","Fort Bend","Brazoria","Galveston")) %>%
-  rename(pop_2000 = value) %>%
-  st_transform(st_crs(houstonMSA_fishnet))
+Plot Census Data
+```{r}
+ggplot()+
+  geom_sf(data = cvam_2000_census, 
+          aes(fill = total_population))
 ```
-
-Now data for 2010 is downloaded. In this instance, `st_buffer` is used to buffer the the tracts by -1ft. This is done because `tidycensus` appears to return geometries that are problematic when subjected to the area weighted interpolation function below. As done in previous chapters, a very small buffer is used to correct the geometries.
-
-```{r, warning = FALSE, message = FALSE, results = "hide"}
-houstonPop10 <- 
-  get_decennial(geography = "tract", variables = "P001001", year = 2010,
-                state = 48, geometry = TRUE,
-                county=c("Harris COunty","San Jacinto","Montgomery","Liberty","Waller",
-                         "Austin","Chambers","Fort Bend","Brazoria","Galveston")) %>%
-  rename(pop_2010 = value) %>%
-  st_transform(st_crs(houstonMSA_fishnet)) %>%
-  st_buffer(-1)
-```
-
-Both years of census data are then plotted.
-
-<div class="superbigimage">
-```{r, warning = FALSE, message = FALSE, fig.height= 8, fig.width= 11}
-grid.arrange(
-ggplot() +
-  geom_sf(data = houstonPop00, aes(fill=factor(ntile(pop_2000,5))), colour=NA) +
-  scale_fill_manual(values = palette5,
-                    labels=quintileBreaks(houstonPop00,"pop_2000"),
-                   name="Quintile\nBreaks") +
-  labs(title="Population, Houston MSA: 2000") +
-  mapTheme,
-
-ggplot() +
-  geom_sf(data = houstonPop10, aes(fill=factor(ntile(pop_2010,5))), colour=NA) +
-  scale_fill_manual(values = palette5,
-                    labels=quintileBreaks(houstonPop10,"pop_2010"),
-                   name="Quintile\nBreaks") +
-  labs(title="Population, Houston MSA: 2010") +
-  mapTheme, ncol=2)
-```
-</div>
-
-
-
-
-Now to reconcile tract boundaries and fishnet grid cells. I’d like you to pay particular attention to this process.
-
-A spatial join would be inappropriate as it would assign the same population value from one tract to the many intersecting grid cells. Instead, the area weighted interpolation function, `st_interpolate_aw`, assigns a proportion of a tract’s population to a grid cell weighted by the proportion of the tract that intersects the grid cell. This works best of course, when we assume that the tract population is uniformly distributed across the tract. This is typically not a great assumption. However, it is a reasonable here particularly given population is a feature in a regression and not an outcome that needs to be measured with significant precision.
-
-The Census data `houstonPop`, has a different spatial extent than `houstonMSA_fishnet`. Most notably, there are no vectors where water is present. To maintain the needed 18,025 grid cells units `(nrow(houstonMSA_fishnet))`, a a unique id is created, `fishnetID`. Then the area weighted interpolation is performed on `population` for the 2000 and 2010 layers. Finally, the results are joined back (`left_join`) to `houstonMSA_fishnet`. This approach maintains a consistent spatial extent.
-
-It would be helpful for you to spend some time running through each code block line by line. Areal weighted interpolation is a really strong spatial analysis skill to have. You can do this in ArcGIS but there is not automated approach.
-
-_MF Note: This code chunk has notable differences from the original markdown. Most notably - the `rownames_to_column` function has been inserted into the dplyr chain as a way to assign out the fishnet cell ID from the houstonMSA_fishnet to the interpolated data. This allows it to be joined to the fishnet by it's unique ID. The `st_interpolate_aw` function removes the unique ID._
 
 ```{r, warning = FALSE, message = FALSE}
-houstonMSA_fishnet <-
-  houstonMSA_fishnet %>%
+CvilleMSA <-
+  CvilleMSA %>%
   rownames_to_column("fishnetID") %>% 
   mutate(fishnetID = as.numeric(fishnetID)) %>%
   dplyr::select(fishnetID)
 
+# Transform Projection of Census Data
+cvam_2000_census <- cvam_2000_census %>% 
+  st_transform(st_crs(CvilleMSA))
+
+cvam_2000_census <- cvam_2000_census %>% 
+  st_transform(st_crs(CvilleMSA))
+```
+!!!!!!!!interpolate census data
+```{r}
+# Interpolate total_population
 fishnetPopulation00 <-
-  st_interpolate_aw(houstonPop00["pop_2000"], houstonMSA_fishnet, extensive=TRUE) %>%
+  st_interpolate_aw(cvam_2000_census["total_population"], CvilleMSA, extensive=TRUE) %>%
   as.data.frame(.) %>%
-  rownames_to_column(var = "fishnetID") %>%
-  left_join(houstonMSA_fishnet %>%
-              mutate(fishnetID = as.character(fishnetID)),
-            ., by=c("fishnetID"='fishnetID')) %>% 
-  mutate(pop_2000 = replace_na(pop_2000,0)) %>%
-  dplyr::select(pop_2000)
+  rownames_to_column(var = "fishnetID")
 
-fishnetPopulation10 <-
-  st_interpolate_aw(houstonPop10["pop_2010"],houstonMSA_fishnet, extensive=TRUE) %>%
+# Interpolate total_white
+fishnetWhite00 <-
+  st_interpolate_aw(cvam_2000_census["total_white"], CvilleMSA, extensive=TRUE) %>%
   as.data.frame(.) %>%
-  rownames_to_column(var = "fishnetID") %>%
-  left_join(houstonMSA_fishnet %>%
-              mutate(fishnetID = as.character(fishnetID)),
-            ., by=c("fishnetID"='fishnetID')) %>% 
-  mutate(pop_2010 = replace_na(pop_2010,0)) %>%
-  dplyr::select(pop_2010)
+  rownames_to_column(var = "fishnetID")
 
-fishnetPopulation <- 
-  cbind(fishnetPopulation00,fishnetPopulation10) %>%
-  dplyr::select(pop_2000,pop_2010) %>%
-  mutate(pop_Change = pop_2010 - pop_2000)
+# Interpolate total_housing_units
+
+# Interpolate total_vacant_households
+
+# Interpolate median_household_income
+
+# Interpolate total_graduate_degree_holders
+
 ```
 
-For comparison purposes, both the 2010 census tract geometries and the population weighted grid cells are plotted.
+Join Data to Fishnet
+```{r}
+# Join interpolated 2000 census data with fishnet
+# Population
+FishnetCensusData <- fishnetPopulation00 %>%
+  left_join(CvilleMSA %>%
+            mutate(fishnetID = as.character(fishnetID)),
+            by = c("fishnetID" = 'fishnetID'))
+# White
+FishnetCensusData <- fishnetWhite00 %>%
+  left_join(FishnetCensusData %>%
+            mutate(fishnetID = as.character(fishnetID)),
+            by = c("fishnetID" = 'fishnetID'))
 
-<div class="superbigimage">
-```{r, warning = FALSE, message = FALSE, fig.height = 8, fig.width= 11}
-grid.arrange(
-ggplot() +
-  geom_sf(data=houstonPop10, aes(fill=factor(ntile(pop_2010,5))),colour=NA) +
-  scale_fill_manual(values = palette5,
-                    labels=substr(quintileBreaks(houstonPop10,"pop_2010"),1,4),
-                   name="Quintile\nBreaks") +
-  labs(title="Population, Houston MSA: 2010",
-       subtitle="Represented as tracts; Boundaries omitted") +
-  mapTheme,
+# total_housing_units
 
-ggplot() +
-  geom_sf(data=fishnetPopulation, aes(fill=factor(ntile(pop_2010,5))),colour=NA) +
-  scale_fill_manual(values = palette5,
-                   labels=substr(quintileBreaks(fishnetPopulation,"pop_2010"),1,4),
-                   name="Quintile\nBreaks") +
-  labs(title="Population, Houston MSA: 2010",
-       subtitle="Represented as fishnet gridcells; Boundaries omitted") +
-  mapTheme, ncol=2)
+# total_vacant_households
+
+# median_household_income
+
+# total_graduate_degree_holders
+
+
+# Replace NA values with 0s
+FishnetCensusData <- FishnetCensusData %>%
+            mutate(pop_2000 = replace_na(fishnetPopulation00, 0)) %>%
+            mutate(white_2000 = replace_na(total_white, 0))
+
+# Calculate population change
+FishnetCensusData <- FishnetCensusData %>% 
+  mutate(pop_Change = pop_2020 - pop_2000)
+
+# Overwrite dataset with only the cleaned, correctly named rows
+FishnetCensusData <- FishnetCensusData %>%
+            dplyr::select(fishnetID, pop_2000, white_2000)
+
 ```
-</div>
+
 
 ## 2.5. Highway Distance
 
@@ -579,17 +564,33 @@ First highway vectors are downloaded from the Texas State open data website in `
 _MF Note: A notable change from the original markdown - these data have been hard-coded to a file endpoint. The original data referenced in the code can be found [here](https://opendata.arcgis.com/datasets/8b2f979d4ef24388a6a893019322e71c_0.geojson)_
 
 ```{r, warning = FALSE, message = FALSE, results = "hide"}
-houstonHighways <-
-  st_read("https://github.com/mafichman/CPLN_675/raw/main/Week_14_15/data/UGB_Chapter_data/houstonHighways.geojson") %>%
-  st_transform(st_crs(houstonMSA)) %>%
-  st_intersection(houstonMSA)
+CvilleHighways <-
+  st_read("/Users/oliveratwood/Documents/GitHub/sprawl-forecasting/data/Cville_Highways.geojson") %>%
+  st_transform(st_crs(CvilleMSA)) %>%
+  st_intersection(CvilleMSA)
+
+CvilleRoads <-
+  st_read("/Users/oliveratwood/Documents/GitHub/sprawl-forecasting/data/Cville_Roads.geojson") %>%
+  st_transform(st_crs(CvilleMSA)) %>%
+  st_intersection(CvilleMSA)
 ```
 
 ```{r plot_highway, warning = FALSE, message= FALSE}
 ggplot() +
   geom_point(data=fishnet, 
-             aes(x=xyC(fishnet)[,1], y=xyC(fishnet)[,2],colour=lc_change),size=1.5) +
-  geom_sf(data=houstonHighways) +
+             aes(x=xyC(fishnet)[,1], y=xyC(fishnet)[,2],colour=lc_change),size=0.1) +
+  geom_sf(data=CvilleHighways, size = 1) +
+  scale_colour_manual(values = palette2,
+                      labels=c("No Change","New Development")) +
+  labs(title = "New Development and Highways",
+       subtitle = "As fishnet centroids") +
+  mapTheme
+```
+```{r plot_roads, warning = FALSE, message= FALSE}
+ggplot() +
+  geom_point(data=fishnet, 
+             aes(x=xyC(fishnet)[,1], y=xyC(fishnet)[,2],colour=lc_change),size=0.1) +
+  geom_sf(data=CvilleRoads, size = 0.1) +
   scale_colour_manual(values = palette2,
                       labels=c("No Change","New Development")) +
   labs(title = "New Development and Highways",
@@ -599,16 +600,18 @@ ggplot() +
 
 Below are some great r-based raster skills. The distance from each grid cell to its nearest highway segment is measured.
 
-First, the highway layer is converted to raster. This is done by creating an `emptyRaster` of `NA` grid cells at the same spatial extent as `lc_change`. Then, `highway_raster` is created by converting `houstonHighways` to `sp` form and then to applying `rasterize`. The raster is then converted to points with `rasterToPoints` and `st_as_sf`, then `aggregate` is used to calculate mean distance by grid cell.
 
-You may (but likely not) be interested in learning that `sp` is the older spatial data convention in R. Although `sf` is the new convention, raster/vector interactions still require `sp`. The `as` function converts.
 
 ```{r, warning = FALSE, message = FALSE}
+# First, the highway layer is converted to raster. This is done by creating an `emptyRaster` of `NA` grid cells at the same spatial extent as `lc_change`. Then, `highway_raster` is created by converting `CvilleHighways` to `sp` form and then to applying `rasterize`. The raster is then converted to points with `rasterToPoints` and `st_as_sf`, then `aggregate` is used to calculate mean distance by grid cell.
+# 
+# You may (but likely not) be interested in learning that `sp` is the older spatial data convention in R. Although `sf` is the new convention, raster/vector interactions still require `sp`. The `as` function converts.
+
 emptyRaster <- lc_change
 emptyRaster[] <- NA
 
 highway_raster <- 
-  as(houstonHighways,'Spatial') %>%
+  as(CvilleHighways,'Spatial') %>%
   rasterize(.,emptyRaster)
 
 highway_raster_distance <- distance(highway_raster)
@@ -617,23 +620,62 @@ names(highway_raster_distance) <- "distance_highways"
 highwayPoints <-
   rasterToPoints(highway_raster_distance) %>%
   as.data.frame() %>%
-  st_as_sf(coords = c("x", "y"), crs = st_crs(houstonMSA_fishnet))
+  st_as_sf(coords = c("x", "y"), crs = st_crs(CvilleMSA))
 
 highwayPoints_fishnet <- 
-  aggregate(highwayPoints, houstonMSA_fishnet, mean) %>%
+  aggregate(highwayPoints, CvilleMSA, mean) %>%
   mutate(distance_highways = ifelse(is.na(distance_highways),0,distance_highways))
 
 ggplot() +
-  geom_sf(data=houstonMSA) +
+  geom_sf(data=CvilleMSA) +
   geom_point(data=highwayPoints_fishnet, aes(x=xyC(highwayPoints_fishnet)[,1], 
                                              y=xyC(highwayPoints_fishnet)[,2], 
                  colour=factor(ntile(distance_highways,5))),size=1.5) +
   scale_colour_manual(values = palette5,
                       labels=substr(quintileBreaks(highwayPoints_fishnet,"distance_highways"),1,8),
                       name="Quintile\nBreaks") +
-  geom_sf(data=houstonHighways, colour = "red") +
+  geom_sf(data=CvilleHighways, colour = "red") +
   labs(title = "Distance to Highways",
        subtitle = "As fishnet centroids; Highways visualized in red") +
+  mapTheme
+```
+
+
+```{r, warning = FALSE, message = FALSE}
+# First, the highway layer is converted to raster. This is done by creating an `emptyRaster` of `NA` grid cells at the same spatial extent as `lc_change`. Then, `highway_raster` is created by converting `CvilleHighways` to `sp` form and then to applying `rasterize`. The raster is then converted to points with `rasterToPoints` and `st_as_sf`, then `aggregate` is used to calculate mean distance by grid cell.
+# 
+# You may (but likely not) be interested in learning that `sp` is the older spatial data convention in R. Although `sf` is the new convention, raster/vector interactions still require `sp`. The `as` function converts.
+
+emptyRaster <- lc_change
+emptyRaster[] <- NA
+
+road_raster <- 
+  as(CvilleRoads,'Spatial') %>%
+  rasterize(.,emptyRaster)
+
+road_raster_distance <- distance(road_raster)
+names(road_raster_distance) <- "distance_roads"
+
+RoadPoints <-
+  rasterToPoints(road_raster_distance) %>%
+  as.data.frame() %>%
+  st_as_sf(coords = c("x", "y"), crs = st_crs(CvilleMSA))
+
+RoadPoints_fishnet <- 
+  aggregate(RoadPoints, CvilleMSA, mean) %>%
+  mutate(distance_roads = ifelse(is.na(distance_roads),0,distance_roads))
+
+ggplot() +
+  geom_sf(data=CvilleMSA) +
+  geom_point(data=RoadPoints_fishnet, aes(x=xyC(RoadPoints_fishnet)[,1], 
+                                             y=xyC(RoadPoints_fishnet)[,2], 
+                 colour=factor(ntile(distance_roads,5))),size=1.5) +
+  scale_colour_manual(values = palette5,
+                      labels=substr(quintileBreaks(RoadPoints_fishnet,"distance_highways"),1,8),
+                      name="Quintile\nBreaks") +
+  geom_sf(data=CvilleRoads, colour = "red") +
+  labs(title = "Distance to Roads",
+       subtitle = "As fishnet centroids; Roads visualized in red") +
   mapTheme
 ```
 
@@ -643,7 +685,7 @@ At the center of our model is a hypothesis that development demand must in part,
 
 The traditional ‘bid-rent’ economic model of development posits that development demand is a function of accessibility. This model works well in cities where centralized locations offer the most accessibility. However, it assumes that all consumers of land share the same preferences for central city access. While urban land is valuable, contemporary urbanism in regions like Houston show us that suburban locations can be quite desirable as well.
 
-Why is that? Hinterland locations do not offer direct access to jobs and cultural amenities. Instead, residents trade-off accessibility for larger lots and bigger homes; as well as a bundle of public services like school quality. Developers are attracted to suburban and exurban locations because of cheap land on ‘greenfield’ sites like farms and open space.
+Why is that? Hinterland locations do not offer direct access to jobs and cultural amenities. Instead, residents trade off accessibility for larger lots and bigger homes; as well as a bundle of public services like school quality. Developers are attracted to suburban and exurban locations because of cheap land on ‘greenfield’ sites like farms and open space.
 
 The demand for greenfield development can vary substantially depending on the existing spatial configuration of development. If accessibility to central locations was the only underlying consideration, developers would sprawl directly out to the periphery, much like the dynamic we modeled in the Urban Growth Boundary chapter (Chapter 2). As a space/time process, this would look much like spilled milk, emanating from a central point outward across the kitchen table.
 
@@ -690,7 +732,7 @@ fishnet$lagDevelopment <-
                 2)
 
 ggplot() +
-  geom_sf(data=houstonMSA) +
+  geom_sf(data=CvilleMSA) +
   geom_point(data=fishnet, 
              aes(x=xyC(fishnet)[,1], y=xyC(fishnet)[,2], 
                  colour=factor(ntile(lagDevelopment,5))), size=1.5) +
@@ -708,14 +750,14 @@ The `tigris` package allows Texas county geometries to be downloaded. A spatial 
 
 Once `studyAreaCounties` is created, it is `st_join`ed with `dat` such that each grid cells knows which county it’s in.
 
+
 ```{r, warning = FALSE, message = FALSE, results = "hide"}
 options(tigris_class = "sf")
 
 studyAreaCounties <- 
-  counties("Texas") %>%
-  st_transform(st_crs(houstonMSA)) %>%
-  dplyr::select(NAME) %>%
-  .[st_buffer(houstonMSA,-1000), , op=st_intersects]
+  counties("Virginia") %>%
+  st_transform(st_crs(CvilleMSA)) %>%
+  dplyr::select(Albemarle, Charlottesville)
 ```
 
 ```{r, warning = FALSE, message = FALSE}
@@ -732,9 +774,9 @@ The last step is to bring together all the disparate feature layers into a final
 ```{r, warning = FALSE, message = FALSE}
 dat <- 
   cbind(
-    fishnet, highwayPoints_fishnet, fishnetPopulation, aggregatedRasters) %>%
+    fishnet, highwayPoints_fishnet, FishnetCensusData, aggregatedRasters) %>%
   dplyr::select(lc_change, developed, forest, farm, wetlands, otherUndeveloped, water,
-                pop_2000, pop_2010, pop_Change, distance_highways,lagDevelopment) %>%
+                pop_2000, pop_2010, pop_Change, distance_highways, distance_roads, lagDevelopment) %>%
   st_join(studyAreaCounties) %>%
   mutate(developed10 = ifelse(lc_change == 1 & developed == 1, 0, developed)) %>%
   filter(water == 0) 
@@ -1327,7 +1369,7 @@ ggplot() +
   geom_point(data=fortBend_landUse, aes(x=xyC(fortBend_landUse)[,1], 
                                         y=xyC(fortBend_landUse)[,2], colour=Land_Use),
                                         shape = 15, size = 2) +
-  geom_sf(data=st_intersection(houstonHighways,filter(studyAreaCounties, NAME=="Fort Bend")), size=2) +
+  geom_sf(data=st_intersection(CvilleHighways,filter(studyAreaCounties, NAME=="Fort Bend")), size=2) +
   scale_fill_manual(values = palette5, name="Development\nDemand",
                     labels=substr(quintileBreaks(fortBend,"Development_Demand"),1,5)) +
   scale_colour_manual(values = c("black","red")) + 
@@ -1339,7 +1381,7 @@ ggplot() +
   geom_point(data=fortBend_landUse, aes(x=xyC(fortBend_landUse)[,1], 
                                         y=xyC(fortBend_landUse)[,2], colour=Land_Use),
                                         shape = 15, size = 2) +
-  geom_sf(data=st_intersection(houstonHighways,filter(studyAreaCounties, NAME=="Fort Bend")), size=2) +
+  geom_sf(data=st_intersection(CvilleHighways,filter(studyAreaCounties, NAME=="Fort Bend")), size=2) +
   scale_fill_manual(values = palette5, name="Population\nChange",
                     labels=substr(quintileBreaks(fortBend,"pop_Change"),1,5)) +
   scale_colour_manual(values = c("black","red")) + 
@@ -1473,6 +1515,6 @@ houstonPop19 <- get_acs(geography = "tract",
 
 # Make sure to transform to the crs of the fishnet!
 houstonPop19 <- houstonPop19 %>%
-  st_transform(st_crs(houstonMSA_fishnet))
+  st_transform(st_crs(CvilleMSA))
 
 ```
