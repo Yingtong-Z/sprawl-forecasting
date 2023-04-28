@@ -53,10 +53,10 @@ clean_2000_census_data <- function() {
   }
   
   # get variables from different decennial files for CV and AM
-  data_cv1 <- get_decennial_variables(2000,'sf1', variables2000A, "Charlottesville")
-  data_cv2 <- get_decennial_variables(2000,'sf3', variables2000B, "Charlottesville")
-  data_am1 <- get_decennial_variables(2000,'sf1', variables2000A, "Albemarle")
-  data_am2 <- get_decennial_variables(2000,'sf3', variables2000B, "Albemarle")
+  data_cv1 <- get_decenial_variables(2000,'sf1', variables2000A, "Charlottesville")
+  data_cv2 <- get_decenial_variables(2000,'sf3', variables2000B, "Charlottesville")
+  data_am1 <- get_decenial_variables(2000,'sf1', variables2000A, "Albemarle")
+  data_am2 <- get_decenial_variables(2000,'sf3', variables2000B, "Albemarle")
   
   # join the data
   cvam_census1 <- rbind(data_cv1, data_am1)
