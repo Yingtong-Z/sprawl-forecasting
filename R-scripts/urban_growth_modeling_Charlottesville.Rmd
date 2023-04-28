@@ -381,6 +381,13 @@ aggregatedRasters <-
   dplyr::select(developed,forest,farm,wetlands,otherUndeveloped,water) %>%
   mutate_if(is.numeric,as.factor)
 
+
+developed, farm, forest, wetlands, otherUndeveloped, water
+
+aggregatedRasters <- aggregatedRasters %>% 
+    mutate(forest = ifelse((forest == 1 & (wetland == 1 | otherUndeveloped == 1 | otherUndeveloped == 1)),
+                           forest, 0)) %>% 
+
 aggregatedRasters %>%
   gather(var,value,developed:water) %>%
   st_cast("POLYGON") %>%    #just to make sure no weird geometries slipped in
@@ -507,12 +514,28 @@ fishnetWhite00 <-
   rownames_to_column(var = "fishnetID")
 
 # Interpolate total_housing_units
+fishnettotal_housing_units <-
+  st_interpolate_aw(cvam_2000_census["total_housing_units"], CvilleMSA, extensive=TRUE) %>%
+  as.data.frame(.) %>%
+  rownames_to_column(var = "fishnetID")
 
 # Interpolate total_vacant_households
+fishnettotal_vacant_households <-
+  st_interpolate_aw(cvam_2000_census["total_vacant_households"], CvilleMSA, extensive=TRUE) %>%
+  as.data.frame(.) %>%
+  rownames_to_column(var = "fishnetID")
 
 # Interpolate median_household_income
+fishnetmedian_household_income <-
+  st_interpolate_aw(cvam_2000_census["median_household_income"], CvilleMSA, extensive=TRUE) %>%
+  as.data.frame(.) %>%
+  rownames_to_column(var = "fishnetID")
 
 # Interpolate total_graduate_degree_holders
+fishnettotal_graduate_degree_holders <-
+  st_interpolate_aw(cvam_2000_census["total_graduate_degree_holders"], CvilleMSA, extensive=TRUE) %>%
+  as.data.frame(.) %>%
+  rownames_to_column(var = "fishnetID")
 
 ```
 
@@ -520,10 +543,8 @@ Join Data to Fishnet
 ```{r}
 # Join interpolated 2000 census data with fishnet
 # Population
-FishnetCensusData <- fishnetPopulation00 %>%
-  left_join(CvilleMSA %>%
-            mutate(fishnetID = as.character(fishnetID)),
-            by = c("fishnetID" = 'fishnetID'))
+FishnetCensusData <- fishnetPopulation00
+
 # White
 FishnetCensusData <- fishnetWhite00 %>%
   left_join(FishnetCensusData %>%
@@ -531,6 +552,10 @@ FishnetCensusData <- fishnetWhite00 %>%
             by = c("fishnetID" = 'fishnetID'))
 
 # total_housing_units
+FishnetCensusData <- fishnettotal_housing_units %>%
+  left_join(FishnetCensusData %>%
+            mutate(fishnetID = as.character(fishnetID)),
+            by = c("fishnetID" = 'fishnetID'))
 
 # total_vacant_households
 
