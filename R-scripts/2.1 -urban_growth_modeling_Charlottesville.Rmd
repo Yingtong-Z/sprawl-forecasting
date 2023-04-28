@@ -313,21 +313,21 @@ ggplot() +
 ```
 ```{r, warning = FALSE, message = FALSE}
 
-forest_data <- rast(lc_2001) %>% 
-  na.omit %>% 
-  filter(value %in% c(41, 42, 43)) %>%
-  mutate(forest = "forest")
-
-ggplot() +
-  geom_sf(data = CvilleMSA) +
-  geom_raster(
-    data = forest_data,
-    aes(x, y, fill = forest)
-  ) +
-  scale_fill_manual(values = c("forest" = "green"), name = "") +
-  labs(title = "Land Cover, 2001") +
-  mapTheme +
-  theme(legend.direction = "horizontal")
+# forest_data <- rast(lc_2001) %>% 
+#   na.omit %>% 
+#   filter(value %in% c(41, 42, 43)) %>%
+#   mutate(forest = "forest")
+# 
+# ggplot() +
+#   geom_sf(data = CvilleMSA) +
+#   geom_raster(
+#     data = forest_data,
+#     aes(x, y, fill = forest)
+#   ) +
+#   scale_fill_manual(values = c("forest" = "green"), name = "") +
+#   labs(title = "Land Cover, 2001") +
+#   mapTheme +
+#   theme(legend.direction = "horizontal")
 ```
 
 
@@ -426,7 +426,7 @@ aggregatedRasters %>%
 ```
 
 ## 2.4. Census Data
-```{r}
+```{r, warning = FALSE, message = FALSE}
 # Set API key
 census_api_key("20ad38c6d9e241be49ae3a1a6f74125448db674e", install = TRUE, overwrite = TRUE)
 
@@ -552,94 +552,40 @@ cvam_2000_census <- cvam_2000_census %>%
   st_transform(st_crs(CvilleMSA))
 ```
 !!!!!!!!interpolate census data
-```{r}
-# Interpolate total_population
-fishnetPopulation00 <-
-  st_interpolate_aw(cvam_2000_census["total_population"], CvilleMSA, extensive=TRUE) %>%
-  as.data.frame(.) %>%
-  rownames_to_column(var = "fishnetID")
 
-# Interpolate total_white
-fishnetWhite00 <-
-  st_interpolate_aw(cvam_2000_census["total_white"], CvilleMSA, extensive=TRUE) %>%
-  as.data.frame(.) %>%
-  rownames_to_column(var = "fishnetID")
-
-# Interpolate total_housing_units
-
-# Interpolate total_vacant_households
-
-# Interpolate median_household_income
-
-# Interpolate total_graduate_degree_holders
-
-```
 
 Join Data to Fishnet
 ```{r}
 # Join interpolated 2000 census data with fishnet
 
-# Population
-fishnetPopulation00 <-
-  st_interpolate_aw(cvam_2000_census["total_population"], CvilleMSA, extensive=TRUE) %>%
-  as.data.frame(.) %>%
-  rownames_to_column(var = "fishnetID") %>%
-  left_join(CvilleMSA %>%
-              mutate(fishnetID = as.character(fishnetID)),
-            ., by=c("fishnetID"='fishnetID')) %>% 
-  mutate(total_population = replace_na(total_population,0)) %>%
-  dplyr::select(total_population)
+# interpolation function
+interpolate_column <- function(column_name) {
+  
+  interpolated_data <-
+    st_interpolate_aw(cvam_2000_census[column_name], CvilleMSA, extensive=TRUE) %>%
+    as.data.frame(.) %>%
+    rownames_to_column(var = "fishnetID") %>%
+    left_join(CvilleMSA %>%
+                mutate(fishnetID = as.character(fishnetID)),
+              ., by=c("fishnetID"='fishnetID')) %>% 
+    mutate(!!column_name := replace_na(!!sym(column_name), 0)) %>%
+    dplyr::select(column_name)
+  
+  return(interpolated_data)
+}
 
-fishnetHHunit00 <-
-  st_interpolate_aw(cvam_2000_census["total_housing_units"], CvilleMSA, extensive=TRUE) %>%
-  as.data.frame(.) %>%
-  rownames_to_column(var = "fishnetID") %>%
-  left_join(CvilleMSA %>%
-              mutate(fishnetID = as.character(fishnetID)),
-            ., by=c("fishnetID"='fishnetID')) %>% 
-  mutate(total_housing_units = replace_na(total_housing_units,0)) %>%
-  dplyr::select(total_housing_units)
+
+fishnetPopulation00 <- interpolate_column('total_population')
+fishnetHHunit00 <- interpolate_column('total_housing_units')
+fishnetVacHH00 <- interpolate_column('total_vacant_households')
+fishnetWhiteP00 <- interpolate_column('total_white')
+fishnetGraduate00 <- interpolate_column('total_graduate_degree_holders')
+
 
 ggplot()+
   geom_sf(data = fishnetPopulation00, 
           aes(fill = total_population))
 
-
-
-
-# Population
-FishnetCensusData <- fishnetPopulation00 %>%
-  left_join(CvilleMSA %>%
-            mutate(fishnetID = as.character(fishnetID)),
-            by = c("fishnetID" = 'fishnetID'))
-# White
-FishnetCensusData <- fishnetWhite00 %>%
-  left_join(FishnetCensusData %>%
-            mutate(fishnetID = as.character(fishnetID)),
-            by = c("fishnetID" = 'fishnetID'))
-
-# total_housing_units
-
-# total_vacant_households
-
-# median_household_income
-
-# total_graduate_degree_holders
-
-
-# Replace NA values with 0s
-FishnetCensusData <- FishnetCensusData %>%
-  mutate(pop_2000 = replace_na(list(fishnetPopulation00), 0)) %>%
-  mutate(white_2000 = replace_na(list(total_white), 0))
-
-
-# Calculate population change
-#FishnetCensusData <- FishnetCensusData %>% 
-#  mutate(pop_Change = pop_2020 - pop_2000)
-
-# Overwrite dataset with only the cleaned, correctly named rows
-FishnetCensusData <- FishnetCensusData %>%
-            dplyr::select(fishnetID, total_population, total_white)
 
 ```
 
@@ -845,8 +791,9 @@ options(tigris_class = "sf")
 
 studyAreaCounties <- 
   counties("Virginia") %>%
-  st_transform(st_crs(CvilleMSA)) #%>%
-  #dplyr::select(Albemarle, Charlottesville)
+  st_transform(st_crs(CvilleMSA)) %>%
+  dplyr::select(NAME) %>%
+  .[st_buffer(CvilleMSA,-1), , op=st_intersects] 
 ```
 
 ```{r, warning = FALSE, message = FALSE}
@@ -863,10 +810,11 @@ The last step is to bring together all the disparate feature layers into a final
 ```{r, warning = FALSE, message = FALSE}
 dat <- 
   cbind(
-    fishnet, highwayPoints_fishnet, fishnetPopulation00, aggregatedRasters) %>%
+    fishnet, highwayPoints_fishnet,fishnetGraduate00,fishnetHHunit00,fishnetPopulation00,fishnetVacHH00,fishnetWhiteP00, aggregatedRasters) %>%
   dplyr::select(lc_change, developed, forest, farm, wetlands, otherUndeveloped, water,
-                total_population, distance_highways, lagDevelopment) %>%
-  #st_join(studyAreaCounties) %>%
+                total_population,total_graduate_degree_holders,total_housing_units,total_vacant_households,total_white, distance_highways, lagDevelopment) %>%
+  st_join(studyAreaCounties) %>%
+  mutate(NAME = ifelse(NAME == "Charlottesville", "Charlottesville", "Albemarle")) %>% 
   mutate(developed10 = ifelse(lc_change == 1 & developed == 1, 0, developed)) %>%
   filter(water == 0) 
 ```
@@ -896,33 +844,33 @@ dat %>%
 Next, the same visualization is created for the population related variables. How does this plot inform which features should be included in the model?
 
 ```{r, warning = FALSE, message = FALSE}
-dat %>%
-  dplyr::select(pop_2000,pop_2010,pop_Change,lc_change) %>%
-  gather(Variable, Value, -lc_change, -geometry) %>%
-  ggplot(., aes(lc_change, Value, fill=lc_change)) + 
-    geom_bar(position = "dodge", stat = "summary", fun.y = "mean") +
-    facet_wrap(~Variable) +
-    scale_fill_manual(values = palette2,
-                      labels=c("No Change","New Development"),
-                      name="") +
-    labs(title="New Development as a Function of Factor Variables") +
-    plotTheme
+# dat %>%
+#   dplyr::select(pop_2000,pop_2010,pop_Change,lc_change) %>%
+#   gather(Variable, Value, -lc_change, -geometry) %>%
+#   ggplot(., aes(lc_change, Value, fill=lc_change)) + 
+#     geom_bar(position = "dodge", stat = "summary", fun.y = "mean") +
+#     facet_wrap(~Variable) +
+#     scale_fill_manual(values = palette2,
+#                       labels=c("No Change","New Development"),
+#                       name="") +
+#     labs(title="New Development as a Function of Factor Variables") +
+#     plotTheme
 ```
 
 Next, a table of land cover conversion between 2001 and 2011 is created. The table suggests for instance, that 1% of farmland regionally was converted to development between 2001 and 2010. This indicator should be interpreted in the context of the scale changes we imposed on the data by moving from a 30ft by 30ft raster to a 4000ft by 4000ft fishnet. This is the same reason why the table suggests `developed` area was then “developed”.
 
 ```{r, warning = FALSE, message = FALSE}
-dat %>%
-  dplyr::select(lc_change:otherUndeveloped,developed) %>%
-  gather(Land_Cover_Type, Value, -lc_change, -geometry) %>%
-   st_set_geometry(NULL) %>%
-     group_by(lc_change, Land_Cover_Type) %>%
-     summarize(n = sum(as.numeric(Value))) %>%
-     ungroup() %>%
-    mutate(Conversion_Rate = paste0(round(100 * n/sum(n), 2), "%")) %>%
-    filter(lc_change == 1) %>%
-  dplyr::select(Land_Cover_Type,Conversion_Rate) %>%
-  kable() %>% kable_styling(full_width = F)
+# dat %>%
+#   dplyr::select(lc_change:otherUndeveloped,developed) %>%
+#   gather(Land_Cover_Type, Value, -lc_change, -geometry) %>%
+#    st_set_geometry(NULL) %>%
+#      group_by(lc_change, Land_Cover_Type) %>%
+#      summarize(n = sum(as.numeric(Value))) %>%
+#      ungroup() %>%
+#     mutate(Conversion_Rate = paste0(round(100 * n/sum(n), 2), "%")) %>%
+#     filter(lc_change == 1) %>%
+#   dplyr::select(Land_Cover_Type,Conversion_Rate) %>%
+#   kable() %>% kable_styling(full_width = F)
 ```
 
 # 4. Predicting for 2010
@@ -958,27 +906,20 @@ Model1 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped,
 Model2 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment, 
               family="binomial"(link="logit"), data = datTrain)
               
-Model3 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment + total_population, 
+Model3 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment + total_population + distance_highways, 
               family="binomial"(link="logit"), data = datTrain)          
-              
-# Model4 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment + pop_2000 + 
-#               pop_2010, 
-#               family="binomial"(link="logit"), data = datTrain)              
-            
-# Model5 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment + pop_Change, 
-#               family="binomial"(link="logit"), data = datTrain)              
-              
-# Model6 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment + pop_Change + 
-#               distance_highways, 
-#               family="binomial"(link="logit"), data = datTrain) 
+
+Model4 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment + total_population + total_graduate_degree_holders + total_housing_units + total_vacant_households + total_white + distance_highways, 
+              family="binomial"(link="logit"), data = datTrain)   
+
 ```
 
 Working carefully through the below code block, a very concise approach for creating a data frame of psudeo R Squares for each model and plotting them for comparison. Recall, `pR2` is the function for psuedo R squared. Dissect the line that uses the `map_dfc` function to see how this approach loops through the models retrieving the goodness of fit for each.
 
 ```{r, warning = FALSE, message = FALSE}
-modelList <- paste0("Model", 1:3)
+modelList <- paste0("Model", 1:4)
 map_dfc(modelList, function(x)pR2(get(x)))[4,] %>%
-  setNames(paste0("Model",1:3)) %>%
+  setNames(paste0("Model",1:4)) %>%
   gather(Model,McFadden) %>%
   ggplot(aes(Model,McFadden)) +
     geom_bar(stat="identity") +
@@ -1097,54 +1038,54 @@ For this use case, it matters little whether the model generalizes well across r
 To test across-space generalizability, `spatialCV` function is run, which iteratively loops through `dat` having each county take a turn as the hold out test set. This is also called ‘Leave-one-group-out cross validation.’. A model is estimated for the n - 1 counties that remain and used to `predict` for the hold out county.
 
 ```{r, warning = FALSE, message = FALSE}
-spatialCV <- function(dataFrame, uniqueID, dependentVariable, modelName) {
-
-#initialize a data frame 
-endList <- list()
-
-#create a list that is all the spatial group unqiue ids in the data frame (ie counties)    
-  uniqueID_List <- unique(dataFrame[[uniqueID]])  
-  x <- 1
-  y <- length(uniqueID_List)
-  
-#create a counter and while it is less than the number of counties...  
-  while(x <= y) 
-  {
-#call a current county    
-    currentUniqueID <- uniqueID_List[x]
-#create a training set comprised of units not in that county and a test set of units
-#that are that county
-    training <- dataFrame[ which(dataFrame[[uniqueID]] != uniqueID_List[x]),]
-    testing <- dataFrame[ which(dataFrame[[uniqueID]] == uniqueID_List[x]),]
-#create seperate xy vectors
-    trainingX <- training[ , -which(names(training) %in% c(dependentVariable))]
-    testingX <- testing[ , -which(names(testing) %in% c(dependentVariable))]
-    
-    trainY <- training[[dependentVariable]]
-    testY <- testing[[dependentVariable]]
-#Calculate predictions on the test county as part of a data frame including the observed
-#outcome and the unique county ID    
-   thisPrediction <- 
-     data.frame(class = testY,
-                probs = predict(modelName, testingX, type="response"),
-                county = currentUniqueID) 
-
-#Row bind the predictions to a data farme
-   endList <- rbind(endList, thisPrediction)
-#iterate counter    
-    x <- x + 1 
-  } 
-#return the final list of counties and associated predictions  
-  return (as.data.frame(endList))
-}
+# spatialCV <- function(dataFrame, uniqueID, dependentVariable, modelName) {
+# 
+# #initialize a data frame 
+# endList <- list()
+# 
+# #create a list that is all the spatial group unqiue ids in the data frame (ie counties)    
+#   uniqueID_List <- unique(dataFrame[[uniqueID]])  
+#   x <- 1
+#   y <- length(uniqueID_List)
+#   
+# #create a counter and while it is less than the number of counties...  
+#   while(x <= y) 
+#   {
+# #call a current county    
+#     currentUniqueID <- uniqueID_List[x]
+# #create a training set comprised of units not in that county and a test set of units
+# #that are that county
+#     training <- dataFrame[ which(dataFrame[[uniqueID]] != uniqueID_List[x]),]
+#     testing <- dataFrame[ which(dataFrame[[uniqueID]] == uniqueID_List[x]),]
+# #create seperate xy vectors
+#     trainingX <- training[ , -which(names(training) %in% c(dependentVariable))]
+#     testingX <- testing[ , -which(names(testing) %in% c(dependentVariable))]
+#     
+#     trainY <- training[[dependentVariable]]
+#     testY <- testing[[dependentVariable]]
+# #Calculate predictions on the test county as part of a data frame including the observed
+# #outcome and the unique county ID    
+#    thisPrediction <- 
+#      data.frame(class = testY,
+#                 probs = predict(modelName, testingX, type="response"),
+#                 county = currentUniqueID) 
+# 
+# #Row bind the predictions to a data farme
+#    endList <- rbind(endList, thisPrediction)
+# #iterate counter    
+#     x <- x + 1 
+#   } 
+# #return the final list of counties and associated predictions  
+#   return (as.data.frame(endList))
+# }
 ```
 
 Now the function is run; a 17% predicted probability threshhold is set and a facetted ROC plot for each county is created. It is important to note that Chambers, Austin, Waller, Liberty and San Jacinto each have ony between 1 and 13 grid cells that actually developed, so the below goodness of fit metrics are likely not useful.
 
 ```{r, warning = FALSE, message = FALSE}
-spatialCV_counties <-
-  spatialCV(dat,"NAME","lc_change", Model6) %>%
-  mutate(predClass = as.factor(ifelse(probs >= 0.17 ,1,0)))
+# spatialCV_counties <-
+#   spatialCV(dat,"NAME","lc_change", Model6) %>%
+#   mutate(predClass = as.factor(ifelse(probs >= 0.17 ,1,0)))
 ```
 
 To investigate the across-county generalizability of the model, the code block below produces and maps confusion matrix statistics by county. It is important to ensure as above, that the `yardstick.event_first` option is set.
@@ -1152,17 +1093,17 @@ To investigate the across-county generalizability of the model, the code block b
 Some interesting patterns emerge. First, results for those counties with little `Observed_Change` are not meaningful. In places with substantial new development, Sensitivity rates are comparable with the results from the test set results on the entire study area. Harris County which contains the City of Houston, has the greatest Sensitivity level, which is reasonable given it contains most of the development. Specificity is low across the board, because the model predicts an abundance of developed areas. Again, this is less of a concern because these estimates will be offset by sensitive land cover in Section 7 below. For the most part, these confusion matrix metrics suggest the model is generalizable to those counties that underwent significant development change.
 
 ```{r, warning = FALSE, message = FALSE}
-spatialCV_metrics <-
-  spatialCV_counties %>% 
-    group_by(county) %>% 
-    summarize(Observed_Change = sum(as.numeric(as.character(class))),
-              Sensitivity = round(yardstick::sens_vec(class,predClass),2),
-              Specificity = round(yardstick::spec_vec(class,predClass),2),
-              Accuracy = round(yardstick::accuracy_vec(class,predClass),2)) 
-
-spatialCV_metrics %>%
-  kable() %>%
-  kable_styling(full_width = F)
+# spatialCV_metrics <-
+#   spatialCV_counties %>% 
+#     group_by(county) %>% 
+#     summarize(Observed_Change = sum(as.numeric(as.character(class))),
+#               Sensitivity = round(yardstick::sens_vec(class,predClass),2),
+#               Specificity = round(yardstick::spec_vec(class,predClass),2),
+#               Accuracy = round(yardstick::accuracy_vec(class,predClass),2)) 
+# 
+# spatialCV_metrics %>%
+#   kable() %>%
+#   kable_styling(full_width = F)
 ```
 
 # 5. Predicting Land Cover Demand for 2020
@@ -1182,7 +1123,7 @@ Below, `lagDevelopment` is mutate describing average distance to 2010 developmen
 ```{r, warning = FALSE, message = FALSE}
 dat <-
   dat %>%
-  mutate(lagDevelopment = nn_function(xyC(.), xyC(filter(.,developed10 == 1)),2))
+  mutate(lagDevelopment = nn_function(xyC(.), xyC(filter(.,developed10 == 2)),2))
 ```
 
 Now to update population change. A new data frame, `countyPopulation_2020` is created which includes 2010 population counts and 2020 projections for each county in the study area. Population is plotted by year and by county. Houston’s Harris County is projected to see the greatest population gains by far. Anecdotally, we know that much of Harris County is already developed, which suggests its development scenario will involve more ‘infill’ development then sprawl.
