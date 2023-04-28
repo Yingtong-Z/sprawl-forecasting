@@ -374,19 +374,19 @@ The `theRasterList` of land cover types in 2001 is created and then fed into `ag
 Note the inclusion of `st_cast` here which convert all geometries to `POLYGON`. If you create a frequency table of geometry types in `aggregatedRasters`, you will notice some and handful of `MULTIPOLYGONS`. Try `table(st_geometry_type(aggregatedRasters)`). These rogue multipolygons break the `xyC` function which is designed to find grid cell centroids. After all, there is no one centroid of several combined polygons. Thus `st_cast` ensures all geometries are just `POLYGON`. Look out for this function throughout the remainder of this chapter.
 
 ```{r, warning = FALSE, message = FALSE}
-theRasterList <- c(developed,forest,farm,wetlands,otherUndeveloped,water)
+theRasterList <- c(developed,farm,forest,wetlands,water,otherUndeveloped)
 
 aggregatedRasters <-
   aggregateRaster(theRasterList, CvilleMSA) %>%
-  dplyr::select(developed,forest,farm,wetlands,otherUndeveloped,water) %>%
+  dplyr::select(developed,farm,forest,wetlands,water,otherUndeveloped) %>%
   mutate_if(is.numeric,as.factor)
 
-
-# developed, farm, forest, wetlands, otherUndeveloped, water
-
-aggregatedRasters <- aggregatedRasters %>% 
-    mutate(forest = ifelse((forest == 1 & (wetland == 1 | otherUndeveloped == 1 | otherUndeveloped == 1)),
-                           forest, 0)) %>% 
+aggregatedRasters <- aggregatedRasters %>%
+    mutate(farm = ifelse(developed == 0 & farm == 1, 1, 0)) %>%
+    mutate(forest = ifelse(developed == 0 & farm == 0 & forest == 1, 1, 0)) %>%
+    mutate(wetlands = ifelse(developed == 0 & farm == 0 & forest == 0 & wetlands == 1, 1, 0)) %>%
+    mutate(water = ifelse(developed == 0 & farm == 0 & forest == 0 & wetlands == 0 & water == 1, 1, 0)) %>%
+    mutate(otherUndeveloped = ifelse(developed == 0 & farm == 0 & forest == 0 & wetlands == 0 & water == 0 & otherUndeveloped == 1, 1, 0))
 
 aggregatedRasters %>%
   gather(var,value,developed:water) %>%
@@ -1126,27 +1126,26 @@ Now to update population change. A new data frame, `countyPopulation_2020` is cr
 _MF Note: This chart has been altered from a stacked bar plot to a paired bar plot._
 
 ```{r, warning = FALSE, message = FALSE}
-countyPopulation_2020 <- 
+countyPopulation_2040 <- 
   data.frame(
    NAME = 
-     c("Fort Bend","San Jacinto","Waller","Galveston","Harris","Liberty","Chambers",
-       "Brazoria","Austin","Montgomery"),
-   county_projection_2020 = 
-     c(888595,32428,58002,335006,4885616,90780,47621,410571,36542,660481)) %>%
+     c("Charlottesville","Albemarle"),
+   county_projection_2040 = 
+     c(48939,138523)) %>%
    left_join(
      dat %>%
        st_set_geometry(NULL) %>%
        group_by(NAME) %>%
-       summarize(county_population_2010 = round(sum(pop_2010))))
+       summarize(county_population_2019 = round(sum(pop_2019))))
 
-countyPopulation_2020 %>%
+countyPopulation_2040 %>%
   gather(Variable,Value, -NAME) %>%
   ggplot(aes(reorder(NAME,-Value),Value)) +
   geom_bar(aes(fill=Variable), stat = "identity", position = "dodge") +
   scale_fill_manual(values = palette2,
-                    labels=c("2020","2010"),
+                    labels=c("2019","2001"),
                     name="Population") +
-  labs(title="Population Change by County: 2010 - 2020",
+  labs(title="Population Change by County: 2001 - 2019",
        x="County", y="Population") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   plotTheme
