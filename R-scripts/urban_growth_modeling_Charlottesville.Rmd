@@ -382,7 +382,7 @@ aggregatedRasters <-
   mutate_if(is.numeric,as.factor)
 
 
-developed, farm, forest, wetlands, otherUndeveloped, water
+# developed, farm, forest, wetlands, otherUndeveloped, water
 
 aggregatedRasters <- aggregatedRasters %>% 
     mutate(forest = ifelse((forest == 1 & (wetland == 1 | otherUndeveloped == 1 | otherUndeveloped == 1)),
