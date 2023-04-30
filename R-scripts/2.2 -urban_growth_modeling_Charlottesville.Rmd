@@ -29,34 +29,18 @@ rm(list=ls())
 
 </style>
 
-_This markdown is an updated version of a module written by Ken Steif in 2019. It's quite wordy - it was an unused chapter from his book. It has been updated to keep it aligned with current packages and the data sources have been updated for the course github. For the most part, the original text is still used here, but alterations, annotations and supplemental code are throughout._
-
-_This workflow will form the backbone of your fifth and final assignment for this class. You will build a growth model based on a binary logistic regression that predicts the probability of land cover change at a raster cell level over a specified interval as a function of a) Existing land cover, b) The location of infrastructure and c) Demographic and economic spatial variables._
-
-_While we have used logistic regression to model spatial phenomena like flooding before, this workflow is different in that we wrangle raster data in R rather than doing it in ArcGIS. You do not need to understand the code in full detail, but rather, you should understand what it does operationally, and think about how you can plug in new data from a different time window, in a different geographic context._
-
-_Michael Fichman, April, 2022_
 
 
 # 1. Introduction
+Regional urban development is influenced by various stakeholders such as developers, real estate buyers, tenants, planners, and regulators, each pursuing their own objectives. To ensure economic productivity and sustainability, land use planning must consider both supply and demand-side insights.
 
-Regional urban development is an emergent outcome resulting from the autonomous decisions of many different agents, including developers, real estate buyers and tenants as well as planners and regulators. Each of these groups optimize for a different set of bottom lines. Developers seek profit, buying land at a low price, improving on that land, and selling it at a premium. Households and firms consume housing and commercial real estate balancing price constraints with access to amenities and customers, respectively.
+This project focuses on the Charlottesville Metropolitan Statistical Area (MSA) as a case study, examining how a sprawling metropolitan area balances economic growth with environmental sustainability by predicting land cover changes. The project draws on data from sources such as the US Geological Survey (USGS), Census demographics, and transportation, as well as spatial lag features from land cover change, to better understand the relationship between development demand and environmentally sensitive land.
 
-Planners regulate development by trading-off economic growth with the mitigation of negative externalities toward the goal of economic and environmental sustainability. Houston, the focus of this chapter, is a case study in managing these trade-offs. A sprawling Metropolitan area larger than the state of New Jersey, Houston’s _laissez-faire_ approach to planning was exploited in the wake of Hurricane Harvey which ultimately cost the region $125 billion. Out of concern for either safety, economic necessity or both, climate change is forcing cities like Houston to reconsider the role of land use planning.
-
-Land use planning that is both economically productive and sustainable requires both supply and demand-side insights. Specifically, the Planner must understand future demand for development and how that demand contrasts with the supply of environmentally sensitive land. The goal of this chapter is to model this interplay.
-
-The next section wrangles a host of datasets including, Land Cover and Land Cover Change from the USGS, Census demographics, and transportation. Spatial lag features are also engineered from the land cover change data hypothesizing that the time/space scale of development between 2000 and 2010 can help predict new development in 2020.
-
-Exploratory analysis is undertaken to investigate the relationship between development and the aforementioned features. Findings then motivate the estimation of a geospatial predictive model trained on new development between 2001 and 2011. Those dynamics are then harnessed to predict Development_Demand for 2020 - predictions interpreted as the probability of new development here. The goal is not to create the most accurate model, but to demonstrate the role for geospatial machine learning in the land use modeling process.
-
-Once predictions are validated for their accuracy and spatial generalizability, we evaluate their confluence with environmentally sensitive land in counties throughout the region, with particular emphasis on landscape fragmentation. The final section uses predictions to ‘allocate’ new development across to places where growth can have an economic impact without impeding sustainability goals.
+Through exploratory analysis,  a geospatial predictive model is developed by training on land cover changes from 2001-2019. This model is used to estimate development demand for the year 2040, while considering the impact on the environment and landscape fragmentation. The model's predictions are then used to guide new development in areas that support economic growth without compromising sustainability goals.
 
 # 1.2. Setup
 
-Below we load the libraries needed for the analysis as well as a `mapTheme` and `plotTheme`. A set of palette colors are also specified.
-
-_MF Note: This chunk differs from the original markdown in a few ways. First, the library `igraph` is now needed. Second, the `mapTheme` and `plotTheme` calls are altered to reflect the default styles we have been using this semester._
+Below we load required libraries, mapTheme and plotTheme for consistent styling, and specify a palette of colors for visualizations
 
 ```{r load_packages, message=FALSE, warning=FALSE, results = "hide"}
 library(tidyverse)
@@ -78,6 +62,8 @@ library(grid)
 library(gridExtra)
 library(viridis)
 library(igraph)
+install.packages("mapview")
+library(mapview)
 
 plotTheme <- theme(
   plot.title =element_text(size=12),
@@ -150,17 +136,13 @@ rast <- function(inRaster) {
 
 # 2. Data Wrangling & Feature Engineering
 
-_JE Note: Land cover data link has been updated._
-
 In this section a considerable amount of vector and raster data is wrangled together into a regression-ready dataset. The following datasets are used:
-(maybe add a fixed effect variable of municipality)
-(maybe add a fixed effect variable of existing land use)
 
-2.2 - 2.3: Land cover data [downloaded](https://www.mrlc.gov/data/nlcd-land-cover-change-index-conus) from the Multi-Resolution Land Characteristics Consortium’s National Land Cover Database (NLCD) includes annual land cover and land cover change raster data for the entire country. These data are sampled to a 4,000 by 4,000 ft^2 fishnet.
+2.2 - 2.3: Land cover data [downloaded](https://www.mrlc.gov/data/nlcd-land-cover-change-index-conus) from the Multi-Resolution Land Characteristics Consortium’s National Land Cover Database (NLCD) includes annual land cover and land cover change raster data for the Charlottesville and Albemarle countries. These data are sampled to a 4,000 by 4,000 ft^2 fishnet.
 
-2.4: Population data is downloaded from the U.S. Census and joined to the fishnet by distributing Census Tract population totals proportionally to each grid cell.
+2.4: Population data is downloaded from the U.S. Census and joined to the fishnet by distributing Block population totals proportionally to each grid cell.
 
-2.5: Highway vectors are downloaded from Texas State open data website and used to wrangle highway proximity features.
+2.5: Highway vectors are downloaded from Virginia State open data website and used to wrangle highway proximity features.
 
 2.6: The land cover change data is used to engineer spatial lag features.
 
@@ -168,30 +150,59 @@ In this section a considerable amount of vector and raster data is wrangled toge
 
 2.8: Each feature is wrangled into a final dataset.
 
-It is important to remember that land cover is not ‘land use’. Typically, the former refers to phenomena on the Earth’s surface including both the built environment and natural resources, while the latter typically refers only to variation in the built environment.
+Other raster features are created such as distance to highways, for instance. These rasters are then integrated with a vector fishnet. Additional feature engineering is performed on the vector-side providing a simple, but comprehensive snapshot of the development process in and around Charlottesville MSA between 2001 and 2019.
 
-Other raster features are created such as distance to highways, for instance. These rasters are then integrated with a vector fishnet. Additional feature engineering is performed on the vector-side providing a simple, but comprehensive snapshot of the development process in and around Houston between 2001 and 2011.
 
 ## 2.2. Land Cover Change Data
 
-The dependent variable we wish to forecast is land cover change between 2001 and 2011. In this section, the land cover raster data is loaded, reclassified and integrated with a vector fishnet. As before, the fishnet will allow us to parametrize spatial relationships in a regression context.
+We aim to forecast the dependent variable of land cover change between 2001 and 2019. In this section, we load the land cover raster data and reclassify it, integrating it with a vector fishnet. This allows us to parameterize spatial relationships in a regression context.
 
 The table below shows descriptions of each categorical land cover type in the land cover data. Below, we will reclassify these data into more useful categories.
 
- _JE Note: Land cover categories can be found [here](https://www.mrlc.gov/data/legends/national-land-cover-database-class-legend-and-description) - will replace with markdown table at a later point._ 
+| Class Value | Classification Description |
+| ----------- | -------------------------- |
+| Water       |                            |
+| 11          | Open Water - areas of open water, generally with less than 25% cover of vegetation or soil. |
+| 12          | Perennial Ice/Snow - areas characterized by a perennial cover of ice and/or snow, generally greater than 25% of total cover. |
+| Developed   |                            |
+| 21          | Developed, Open Space - areas with a mixture of some constructed materials, but mostly vegetation in the form of lawn grasses. Impervious surfaces account for less than 20% of total cover. These areas most commonly include large-lot single-family housing units, parks, golf courses, and vegetation planted in developed settings for recreation, erosion control, or aesthetic purposes. |
+| 22          | Developed, Low Intensity - areas with a mixture of constructed materials and vegetation. Impervious surfaces account for 20% to 49% percent of total cover. These areas most commonly include single-family housing units. |
+| 23          | Developed, Medium Intensity - areas with a mixture of constructed materials and vegetation. Impervious surfaces account for 50% to 79% of the total cover. These areas most commonly include single-family housing units. |
+| 24          | Developed High Intensity - highly developed areas where people reside or work in high numbers. Examples include apartment complexes, row houses and commercial/industrial. Impervious surfaces account for 80% to 100% of the total cover. |
+| Barren      |                            |
+| 31          | Barren Land (Rock/Sand/Clay) - areas of bedrock, desert pavement, scarps, talus, slides, volcanic material, glacial debris, sand dunes, strip mines, gravel pits and other accumulations of earthen material. Generally, vegetation accounts for less than 15% of total cover. |
+| Forest      |                            |
+| 41          | Deciduous Forest - areas dominated by trees generally greater than 5 meters tall, and greater than 20% of total vegetation cover. More than 75% of the tree species shed foliage simultaneously in response to seasonal change. |
+| 42          | Evergreen Forest - areas dominated by trees generally greater than 5 meters tall, and greater than 20% of total vegetation cover. More than 75% of the tree species maintain their leaves all year. Canopy is never without green foliage. |
+| 43          | Mixed Forest - areas dominated by trees generally greater than 5 meters tall, and greater than 20% of total vegetation cover. Neither deciduous nor evergreen species are greater than 75% of total tree cover. |
+| Shrubland   |                            |
+| 51          | Dwarf Scrub - Alaska only areas dominated by shrubs less than 20 centimeters tall with shrub canopy typically greater than 20% of total vegetation. This type is often co-associated with grasses, sedges, herbs, and non-vascular vegetation. |
+| 52          | Shrub/Scrub - areas dominated by shrubs; less than 5 meters tall with shrub canopy typically greater than 20% of total vegetation. This class includes true shrubs, young trees in an early successional stage or trees stunted from environmental conditions. |
+| Herbaceous  |                            |
+| 71          | Grassland/Herbaceous - areas dominated by gramanoid or herbaceous vegetation, generally greater than 80% of total vegetation. These areas are not subject to intensive management such as tilling, but can be utilized for grazing. |
+| 72          | Sedge/Herbaceous - Alaska only areas dominated by sedges and forbs, generally greater than 80% of total vegetation. This type can occur with significant other grasses or other grass-like plants, and includes sedge tundra, and sedge tussock tundra. |
+| 73          | Lichens - Alaska only areas dominated by fruticose or foliose lichens generally greater than 80% of total vegetation. |
+| 74          | Moss - Alaska only areas dominated by mosses, generally greater than 80% of total vegetation. |
+| Planted/Cultivated |                      |
+| 81          | Pasture/Hay - areas of grasses, legumes, or grass-legume mixtures planted for livestock grazing or the production of seed or hay crops, typically on a perennial cycle. Pasture/hay vegetation accounts for greater than 20% of total vegetation. |
+| 82          | Cultivated Crops - areas used for the production of annual crops, such as corn, soybeans, vegetables, tobacco, and cotton, and also perennial woody crops such as orchards and vineyards. Crop vegetation accounts for greater than 20% of total vegetation. This class also includes all land being actively tilled. |
+| Wetlands    |                            |
+| 90          | Woody Wetlands - areas where forest or shrubland vegetation accounts for greater than 20% of vegetative cover and the soil or substrate is periodically saturated with or covered with water. |
+| 95          | Emergent Herbaceous Wetlands - Areas where perennial herbaceous vegetation accounts for greater than 80% of vegetative cover and the soil or substrate is periodically saturated with or covered with water. |
+
+
  
 Several raster layers have been provided for this analysis: 
 
-- We read in `houstonMSA` - this is the extent of the study area 
+- We read in `CvilleMSA` - this is the extent of the study area 
 
-- `lc_change` is a raster of land cover change - where there were conversions between one land cover and another on the time frame 2000-2010. We plot the raster using `ggplot` and the `rast` function specified above.
+- `lc_change` is a raster of land cover change - where there were conversions between one land cover and another on the time frame 2001-2019. We plot the raster using `ggplot` and the `rast` function specified above.
 
-Note that `lc_change` is projected as `NAD 1983 StatePlane Texas South FIPS 4205 Feet`. The original land cover raster is at a 30 meter by 30 meter resolution. The rasters provided are ultimately resampled up to 4000 feet by 4000 feet. The Houston metro area is quite large at roughly 10,000 square meters (`st_area(houstonMSA) * 3.58701e-8`). The original 30 by 30 meter data has nearly 58 million grid cells. A vector fishnet dataset of this size would be too computationally intensive. By resampling we gain some computational efficiency but lose some accuracy. Nevertheless, this approach works well for educational purposes.
+Note that `lc_change` is projected as `NAD 1983 StatePlane Virginia South FIUS` and is spatially referred using `EPSG:2284`. The original land cover raster is at a 30 meter by 30 meter resolution. The rasters provided are ultimately resampled up to 4000 feet by 4000 feet. 
 
-!!!Note: Spatial Reference for Charlottesville is EPSG:2284: NAD83 / Virginia South (ftUS)
 
 ```{r load_data, warning = FALSE, message = FALSE, results = "hide"}
-CvilleMSA <- 
+CvilleMSA <-
   st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Hex.geojson") %>%
   st_transform('EPSG:2284')
 
@@ -223,7 +234,7 @@ reclassMatrix <-  matrix(c(
 reclassMatrix
 ```
 
-Now `reclassify` and convert all 0’s to `NA`. We apply a name to the raster with `names`. This is done to make it faster to join raster to the fishnet below. You can see the frequency table of values with `freq(lc_change2)`. There are 655 areas that changed from underdeveloped to developed in the data.
+Now `reclassify` and convert all 0’s to `NA`. We apply a name to the raster with `names`. This is done to make it faster to join raster to the fishnet below. 
 
 ```{r, warning = FALSE, message = FALSE}
 lc_change2 <- 
@@ -253,7 +264,7 @@ ggplot() +
 <!--   CvilleMSA[houstonMSA,] -->
 <!-- ``` -->
 
-The vector fishnet is then plotted. Note that this plot takes a bit of time to render because there are more than 18,000 polygons.
+The vector fishnet is then plotted.
 
 ```{r, warning = FALSE, message= FALSE}
 ggplot() +
@@ -262,7 +273,9 @@ ggplot() +
   mapTheme
 ```
 
-Convert raster to 'sf' point layer, join points to fishnet, and plot
+
+The code below converts the raster to an `sf` point layer and then joins the points to the fishnet with `aggregate`. Finally, the fishnet variable `lc_change` is created that is `1` where new development has occurred and `0` where it has not. This is our dependent variable and encoded as a factor.
+
 ```{r, warning = FALSE, message = FALSE}
 # The code below converts the raster to an `sf` point layer and then joins the points to the fishnet with `aggregate`. 
 # This works well because the raster and the fishnet are of the same spatial resolution.
@@ -312,25 +325,6 @@ ggplot() +
   mapTheme +
   theme(legend.direction="horizontal")
 ```
-```{r, warning = FALSE, message = FALSE}
-
-# forest_data <- rast(lc_2001) %>% 
-#   na.omit %>% 
-#   filter(value %in% c(41, 42, 43)) %>%
-#   mutate(forest = "forest")
-# 
-# ggplot() +
-#   geom_sf(data = CvilleMSA) +
-#   geom_raster(
-#     data = forest_data,
-#     aes(x, y, fill = forest)
-#   ) +
-#   scale_fill_manual(values = c("forest" = "green"), name = "") +
-#   labs(title = "Land Cover, 2001") +
-#   mapTheme +
-#   theme(legend.direction = "horizontal")
-```
-
 
 
 The table below shows the approach taken to recoded existing land cover codes into the categories used in our analysis. In the code block below new rasters are generated and `names` are applied. Naming ensures that when the raster is integrated with the fishnet, the column reflects the appropriate raster.
@@ -392,7 +386,7 @@ aggregateRaster <- function(inputRasterList, theFishnet) {
 
 The `theRasterList` of land cover types in 2001 is created and then fed into `aggregateRaster`. The result is converted to long form grid cell centroids and plot as small multiple maps.
 
-Note the inclusion of `st_cast` here which convert all geometries to `POLYGON`. If you create a frequency table of geometry types in `aggregatedRasters`, you will notice some and handful of `MULTIPOLYGONS`. Try `table(st_geometry_type(aggregatedRasters)`). These rogue multipolygons break the `xyC` function which is designed to find grid cell centroids. After all, there is no one centroid of several combined polygons. Thus `st_cast` ensures all geometries are just `POLYGON`. Look out for this function throughout the remainder of this chapter.
+Note the inclusion of `st_cast` here which convert all geometries to `POLYGON`. If we create a frequency table of geometry types in `aggregatedRasters`, we will notice some and handful of `MULTIPOLYGONS`. Try `table(st_geometry_type(aggregatedRasters)`). These rogue multipolygons break the `xyC` function which is designed to find grid cell centroids. After all, there is no one centroid of several combined polygons. Thus `st_cast` ensures all geometries are just `POLYGON`.
 
 ```{r, warning = FALSE, message = FALSE}
 theRasterList <- c(developed,forest,farm,wetlands,otherUndeveloped,water)
@@ -428,6 +422,12 @@ aggregatedRasters %>%
 ```
 
 ## 2.4. Census Data
+
+Population and population change are crucial demand-side factors for predicting `Development_Demand`. We obtain 2000 and 2020 census data through the `tidycensus` package to represent the demographic features for 2001 and 2019. These data are downloaded at a block group geography and thus, an approach is needed to reconcile tracts and fishnet geometries. This is accomplished using a technique called areal weighted interpolation.
+
+
+Below we get the demographic data including `total_population`, `total_housing_units`, `total_vacant_households`, `total_white`,`total_graduate_degree_holders` for both 2000 and 2020.
+
 ```{r, warning = FALSE, message = FALSE}
 # Set API key
 census_api_key("20ad38c6d9e241be49ae3a1a6f74125448db674e", install = TRUE, overwrite = TRUE)
@@ -529,6 +529,7 @@ clean_2020_census_data <- function() {
 cvam_2000_census <- clean_2000_census_data() # 2000 census data
 cvam_2020_census <- clean_2020_census_data() # 2020 census data
 ```
+
 Additional Census Data Formatting for 2020
 ```{r}
 cvam_2020_census <- cvam_2020_census %>% 
@@ -542,12 +543,13 @@ cvam_2020_census <- cvam_2020_census %>%
 ```
 
 
-Plot Census Data
+Feature of 2000 totoal population data is plotted.
 ```{r}
 ggplot()+
   geom_sf(data = cvam_2000_census, 
           aes(fill = total_population))
 ```
+
 
 ```{r, warning = FALSE, message = FALSE}
 CvilleMSA <-
