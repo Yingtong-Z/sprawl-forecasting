@@ -1306,7 +1306,7 @@ dat2 %>%
          Y = st_coordinates(.)[,2]) %>%
   ggplot() +
     geom_sf(data=CvilleMSA) +
-    geom_point(aes(X,Y, colour=as.factor(value))) +
+    geom_point(aes(X,Y, colour=as.factor(value)), size = 0.1) +
     facet_wrap(~var) +
     scale_colour_manual(values = palette2,
                         labels=c("Other","Land Cover"),
