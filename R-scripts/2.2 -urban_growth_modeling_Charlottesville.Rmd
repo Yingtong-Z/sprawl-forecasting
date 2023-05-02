@@ -207,7 +207,7 @@ Note that `lc_change` is projected as `NAD 1983 StatePlane Virginia South FIUS` 
 ```{r load_data, warning = FALSE, message = FALSE, results = "hide"}
 CvilleMSA <-
   # st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Hex.geojson") %>%
-  st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Tesselated_Coarse.geojson") %>%
+  st_read("/Users/oliveratwood/Documents/GitHub/sprawl-forecasting/data/Cville_Tesselated_Coarse.geojson") %>%
   st_transform('EPSG:2284')
 
 lc_change = raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/LC_Change_2001_2019.tif")
