@@ -214,9 +214,12 @@ CvilleMSA <-
   st_transform('EPSG:2284')
 
 lc_change = raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/LC_Change_2001_2019.tif")
+  
+lc_change <- projectRaster(lc_change, crs = CRS("+init=epsg:2284"))
+
 ```
 
-We now plot the MSA.
+We now plot Land Cover Change within our MSA.
 
 ```{r plot_msa, warning= FALSE, message= FALSE}
 ggplot() +
@@ -251,7 +254,7 @@ lc_change2[lc_change2 < 1] <- NA
 names(lc_change2) <- "lc_change"
 
 ggplot() +
-  geom_sf(data=CvilleMSA)+
+  geom_sf(data=CvilleMSA, fill = "grey", color = "transparent")+
   geom_raster(data=rast(lc_change2) %>% na.omit, 
               aes(x,y,fill=as.factor(value))) +
   scale_fill_viridis(discrete=TRUE, name ="Land Cover\nChange") + 
@@ -263,7 +266,7 @@ The vector fishnet is then plotted.
 
 ```{r, warning = FALSE, message= FALSE}
 ggplot() +
-  geom_sf(data=CvilleMSA) +
+  geom_sf(data=CvilleMSA, fill = "grey", color= "black") +
   labs(title="Hexagonal Fishnet, 250k sq ft cells") +
   mapTheme
 ```
@@ -293,11 +296,8 @@ fishnet <-
 # Plot
 # To speed up the mapping process, fishnet polygons are converted to centroid points using the `xyC` function defined earlier  
 ggplot() +
-  geom_point(data=fishnet, 
-             aes(x=xyC(fishnet)$x, y=xyC(fishnet)$y, colour=lc_change), size = .1) +
-  scale_colour_manual(values = palette2,
-                      labels=c("No Change","New Development"),
-                      name = "") +
+  geom_sf(data=fishnet, aes(fill=lc_change), color=NA) +
+  scale_fill_manual(values = palette2, labels=c("No Change","New Development"), name = "") +
   labs(title = "Land Cover Development Change", subtitle = "As fishnet centroids") +
   mapTheme
 ```
@@ -309,9 +309,6 @@ It is reasonable to hypothesize that the propensity of new development is a func
 
 ```{r, warning = FALSE, message = FALSE}
 lc_2001 <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_LC_2001.tif")
-
-# Transform the raster to EPSG:2284
-lc_2001 <- projectRaster(input_raster, crs = CRS("+init=epsg:2284"))
 
 ggplot() +
   geom_raster(data=rast(lc_2001) %>% na.omit %>% filter(value > 0), 
@@ -407,7 +404,7 @@ aggregatedRasters %>%
          Y = xyC(.)$y) %>%
   ggplot() +
     geom_sf(data=CvilleMSA) +
-    geom_point(aes(X,Y, colour=as.factor(value)), size = 0.1) +
+    geom_point(aes(X,Y, colour=as.factor(value)), size =0.1) +
     facet_wrap(~var) +
     scale_colour_manual(values = palette2,
                         labels=c("Other","Land Cover"),
