@@ -206,7 +206,8 @@ Note that `lc_change` is projected as `NAD 1983 StatePlane Virginia South FIUS` 
 
 ```{r load_data, warning = FALSE, message = FALSE, results = "hide"}
 CvilleMSA <-
-  st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Hex.geojson") %>%
+  # st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Hex.geojson") %>%
+  st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Tesselated_Coarse.geojson") %>%
   st_transform('EPSG:2284')
 
 lc_change = raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/LC_Change_2001_2019.tif")
@@ -1212,6 +1213,8 @@ dat_infill <-
            pop_Change = round(pop_2040.infill - total_population2020),2) %>%
     dplyr::select(-county_projection_2040, -county_population_2020, 
                   -proportion_of_county_pop, -pop_2040.infill) %>%
+  #add values for 2020 baseline (forest, farm, etc.)
+  
   #predict for 2040
     mutate(predict_2040.infill = predict(Model3,. , type="response"))
 
@@ -1448,7 +1451,7 @@ ggplot() +
   geom_sf(data=Albemarle, aes(fill=factor(ntile(Development_Demand,5))), colour=NA) +
   geom_point(data=Albemarle_landUse, aes(x=xyC(Albemarle_landUse)[,1],
                                         y=xyC(Albemarle_landUse)[,2], colour=Land_Use),
-                                        shape = 15, size = 0.1) +
+                                        shape = 15, size = 1) +
   geom_sf(data=st_intersection(CvilleHighways,filter(studyAreaCounties, NAME=="Albemarle")), size=2) +
   scale_fill_manual(values = palette5, name="Development_Demand",
                     labels=substr(quintileBreaks(Albemarle,"Development_Demand"),1,5)) +
