@@ -43,7 +43,6 @@ Through exploratory analysis,  a geospatial predictive model is developed by tra
 Below we load required libraries, mapTheme and plotTheme for consistent styling, and specify a palette of colors for visualizations
 
 ```{r load_packages, message=FALSE, warning=FALSE, results = "hide"}
-install.packages("tigris")
 library(tigris)
 library(tidyverse)
 library(sf)
@@ -64,7 +63,6 @@ library(grid)
 library(gridExtra)
 library(viridis)
 library(igraph)
-install.packages("mapview")
 library(mapview)
 
 
@@ -207,7 +205,8 @@ Note that `lc_change` is projected as `NAD 1983 StatePlane Virginia South FIUS` 
 ```{r load_data, warning = FALSE, message = FALSE, results = "hide"}
 CvilleMSA <-
   # st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Hex.geojson") %>%
-  st_read("/Users/oliveratwood/Documents/GitHub/sprawl-forecasting/data/Cville_Tesselated_Coarse.geojson") %>%
+  # st_read("/Users/oliveratwood/Documents/GitHub/sprawl-forecasting/data/Cville_Tesselated_Coarse.geojson") %>%
+  st_read("/Users/oliveratwood/Documents/GitHub/sprawl-forecasting/data/Cville_Tesselated_Coarser.geojson") %>%
   st_transform('EPSG:2284')
 
 lc_change = raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/LC_Change_2001_2019.tif")
@@ -302,7 +301,6 @@ fishnet <-
 # Plot
 # To speed up the mapping process, fishnet polygons are converted to centroid points using the `xyC` function defined earlier  
 ggplot() +
-  geom_sf(data=CvilleMSA) +
   geom_point(data=fishnet, 
              aes(x=xyC(fishnet)$x, y=xyC(fishnet)$y, colour=lc_change), size = .1) +
   scale_colour_manual(values = palette2,
@@ -321,7 +319,6 @@ It is reasonable to hypothesize that the propensity of new development is a func
 lc_2001 <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_LC_2001.tif")
 
 ggplot() +
-  geom_sf(data=CvilleMSA) +
   geom_raster(data=rast(lc_2001) %>% na.omit %>% filter(value > 0), 
               aes(x,y,fill=as.factor(value))) +
   scale_fill_viridis(discrete=TRUE, name ="") +
@@ -639,6 +636,7 @@ First highway vectors are downloaded from the Virginia State open data website i
 ```{r read and plot highway, warning = FALSE, message= FALSE}
 CvilleHighways <-
   st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways.geojson") %>%
+  # st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways2.geojson") %>%
   st_transform(st_crs(CvilleMSA)) %>%
   st_intersection(CvilleMSA)
 
@@ -651,22 +649,6 @@ ggplot() +
   labs(title = "New Development and Highways",
        subtitle = "As fishnet centroids") +
   mapTheme
-```
-```{r read and plot roads, warning = FALSE, message= FALSE}
-# CvilleRoads <-
-#   st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Roads.geojson") %>%
-#   st_transform(st_crs(CvilleMSA)) %>%
-#   st_intersection(CvilleMSA)
-# 
-# ggplot() +
-#   geom_point(data=fishnet, 
-#              aes(x=xyC(fishnet)[,1], y=xyC(fishnet)[,2],colour=lc_change),size=0.1) +
-#   geom_sf(data=CvilleRoads, size = 0.1) +
-#   scale_colour_manual(values = palette2,
-#                       labels=c("No Change","New Development")) +
-#   labs(title = "New Development and Highways",
-#        subtitle = "As fishnet centroids") +
-#   mapTheme
 ```
 
 Below are some great r-based raster skills. The distance from each grid cell to its nearest highway segment is measured.
@@ -707,46 +689,24 @@ ggplot() +
   mapTheme
 ```
 
-
-```{r, warning = FALSE, message = FALSE}
-# First, the highway layer is converted to raster. This is done by creating an `emptyRaster` of `NA` grid cells at the same spatial extent as `lc_change`. Then, `highway_raster` is created by converting `CvilleHighways` to `sp` form and then to applying `rasterize`. The raster is then converted to points with `rasterToPoints` and `st_as_sf`, then `aggregate` is used to calculate mean distance by grid cell.
+## 2.6. Add Slope Variable
+```{r}
+# SlopeRaster <- raster("/Users/oliveratwood/Documents/GitHub/sprawl-forecasting/data/Cville_Slope.tif")
 # 
-# You may (but likely not) be interested in learning that `sp` is the older spatial data convention in R. Although `sf` is the new convention, raster/vector interactions still require `sp`. The `as` function converts.
-
-# emptyRaster <- lc_change
-# emptyRaster[] <- NA
+# # Use aggregateRaster to aggregate the Slope raster with dat
+# aggregated_slope <- aggregateRaster(SlopeRaster, dat)
 # 
-# road_raster <- 
-#   as(CvilleRoads,'Spatial') %>%
-#   rasterize(.,emptyRaster)
+# # Convert the aggregated Slope raster to a data frame
+# aggregated_slope_df <- as.data.frame(aggregated_slope, xy = TRUE)
 # 
-# road_raster_distance <- distance(road_raster)
-# names(road_raster_distance) <- "distance_roads"
-# 
-# RoadPoints <-
-#   rasterToPoints(road_raster_distance) %>%
-#   as.data.frame() %>%
-#   st_as_sf(coords = c("x", "y"), crs = st_crs(CvilleMSA))
-# 
-# RoadPoints_fishnet <- 
-#   aggregate(RoadPoints, CvilleMSA, mean) %>%
-#   mutate(distance_roads = ifelse(is.na(distance_roads),0,distance_roads))
-# 
-# ggplot() +
-#   geom_sf(data=CvilleMSA) +
-#   geom_point(data=RoadPoints_fishnet, aes(x=xyC(RoadPoints_fishnet)[,1], 
-#                                              y=xyC(RoadPoints_fishnet)[,2], 
-#                  colour=factor(ntile(distance_roads,5))),size=1.5) +
-#   scale_colour_manual(values = palette5,
-#                       labels=substr(quintileBreaks(RoadPoints_fishnet,"distance_highways"),1,8),
-#                       name="Quintile\nBreaks") +
-#   geom_sf(data=CvilleRoads, colour = "red") +
-#   labs(title = "Distance to Roads",
-#        subtitle = "As fishnet centroids; Roads visualized in red") +
-#   mapTheme
+# # Combine the aggregated Slope raster data frame with the dat dataset
+# dat <- aggregated_slope_df %>%
+#   st_as_sf(coords = c("x", "y"), crs = st_crs(dat)) %>%
+#   st_join(dat) %>%
+#   st_cast("POLYGON")
 ```
 
-## 2.6. The Spatial Lag of Development
+## 2.7. The Spatial Lag of Development
 
 Our model hypothesizes that development demand partly depends on existing development patterns. Accessibility plays a significant role in traditional 'bid-rent' economic models of development. However, this model assumes shared preferences for central city access, which may not hold true in sprawling regions like Charlottesville MSA, where suburban locations are desirable.
 
@@ -818,7 +778,7 @@ studyAreaCounties <-
 ```
 
 
-## 2.8. Create the Final Dataset
+## 2.9. Create the Final Dataset
 
 The last step is to bring together all the disparate feature layers into a final dataset that can be used for analysis. The various fishnet layers are `cbind` together, needed features are extracted and the final fishnet, `dat` is then joined with `studyAreaCounties` to assign each grid cell to a county. `developed10` is created to designate those areas that have already been developed through 2019. Finally, any grid cell that has a `water` land cover designation is removed.
 
@@ -902,6 +862,9 @@ dat %>%
   dplyr::select(Land_Cover_Type,Conversion_Rate) %>%
   kable() %>% kable_styling(full_width = F)
 ```
+
+
+
 
 # 4. Predicting for 2010
 
@@ -1251,28 +1214,16 @@ The third metric warrants some further discussion. In the context of leapfrog de
 To begin, the 2011 Land Cover data is read in and reclassified.
 
 ```{r, warning = FALSE, message = FALSE}
+# Read raster data
 lc_2019 <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_LC_2019.tif")
 
-developed19 <- lc_2019 == 21 | lc_2019 == 22 | lc_2019 == 23 | lc_2019 == 24
-forest19 <- lc_2019 == 41 | lc_2019 == 42 | lc_2019 == 43 
-farm19 <- lc_2019 == 81 | lc_2019 == 82 
-wetlands19 <- lc_2019 == 90 | lc_2019 == 95 
-otherUndeveloped19 <- lc_2019 == 52 | lc_2019 == 71 | lc_2019 == 31 
-water19 <- lc_2019 == 11
-
-names(developed19) <- "developed19"
-names(forest19) <- "forest19"
-names(farm19) <- "farm19"
-names(wetlands19) <- "wetlands19"
-names(otherUndeveloped19) <- "otherUndeveloped19"
-names(water19) <- "water19"
 
 ggplot() +
-  geom_sf(data=CvilleMSA) +
   geom_raster(data = rbind(rast(lc_2001) %>% mutate(label = "2001"),
                            rast(lc_2019) %>% mutate(label = "2019")) %>% 
               na.omit %>% filter(value > 0), 
               aes(x,y,fill=as.factor(value))) +
+  geom_sf(data = studyAreaCounties, fill = NA, colour = "red", size = 1) +
   facet_wrap(~label) +
   scale_fill_viridis(discrete=TRUE, name ="") +
   labs(title = "Land Cover, 2001 & 2019") +
@@ -1282,8 +1233,25 @@ ggplot() +
 Next, each raster is aggregated to the fishnet using the `aggregateRaster` function and 2011 land cover types are mapped.
 
 ```{r, warning = FALSE, message = FALSE}
+lc_2019 <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_LC_2019.tif")
+
+developed19 <- lc_2019 == 21 | lc_2019 == 22 | lc_2019 == 23 | lc_2019 == 24
+forest19 <- lc_2019 == 41 | lc_2019 == 42 | lc_2019 == 43
+farm19 <- lc_2019 == 81 | lc_2019 == 82
+wetlands19 <- lc_2019 == 90 | lc_2019 == 95
+otherUndeveloped19 <- lc_2019 == 52 | lc_2019 == 71 | lc_2019 == 31
+water19 <- lc_2019 == 11
+
+names(developed19) <- "developed19"
+names(forest19) <- "forest19"
+names(farm19) <- "farm19"
+names(wetlands19) <- "wetlands19"
+names(otherUndeveloped19) <- "otherUndeveloped19"
+names(water19) <- "water19"
+
 theRasterList19 <- c(developed19,forest19,farm19,wetlands19,otherUndeveloped19,water19)
 
+###assign lc values based on hierarchy
 dat2 <-
   aggregateRaster(theRasterList19, dat_infill) %>%
   dplyr::select(developed19,forest19,farm19,wetlands19,otherUndeveloped19,water19) %>%
@@ -1291,14 +1259,35 @@ dat2 <-
   bind_cols(.,dat) %>%
   st_sf() %>%
   st_cast("POLYGON")
-
 # reassign cells with more than one lc value to just one based on hierarchy shown here
 dat2 <- dat2 %>%
-    mutate(farm = ifelse(developed19 == 0 & farm19 == 1, 1, 0)) %>%
-    mutate(forest = ifelse(developed19 == 0 & farm19 == 0 & forest19 == 1, 1, 0)) %>%
-    mutate(wetlands = ifelse(developed19 == 0 & farm19 == 0 & forest19 == 0 & wetlands19 == 1, 1, 0)) %>%
-    mutate(water = ifelse(developed19 == 0 & farm19 == 0 & forest19 == 0 & wetlands19 == 0 & water19 == 1, 1, 0)) %>%
-    mutate(otherUndeveloped = ifelse(developed19 == 0 & farm19 == 0 & forest19 == 0 & wetlands19 == 0 & water19 == 0 & otherUndeveloped19 == 1, 1, 0))
+    mutate(farm19 = ifelse(developed19 == 0 & farm19 == 1, 1, 0)) %>%
+    mutate(forest19 = ifelse(developed19 == 0 & farm19 == 0 & forest19 == 1, 1, 0)) %>%
+    mutate(wetlands19 = ifelse(developed19 == 0 & farm19 == 0 & forest19 == 0 & wetlands19 == 1, 1, 0)) %>%
+    mutate(water19 = ifelse(developed19 == 0 & farm19 == 0 & forest19 == 0 & wetlands19 == 0 & water19 == 1, 1, 0)) %>%
+    mutate(otherUndeveloped19 = ifelse(developed19 == 0 & farm19 == 0 & forest19 == 0 & wetlands19 == 0 & water19 == 0 & otherUndeveloped19 == 1, 1, 0))
+
+# ###assign lc values based on most common lc type within each fishnet cell
+# dat2 <-
+#   aggregateRaster(theRasterList19, dat_infill) %>%
+#   dplyr::select(developed19,forest19,farm19,wetlands19,otherUndeveloped19,water19) %>%
+#   st_set_geometry(NULL) %>%
+#   mutate(across(everything(), as.numeric)) %>% # Convert all columns to numeric
+#   mutate(max_col = apply(., 1, which.max)) %>% # Find the index of the maximum value in each row
+#   mutate(across(everything(), ~replace(., row_number() != max_col, 0), .names = "new_{.col}")) %>% # Replace non-maximum values with 0
+#   dplyr::select(new_developed19:new_water19) %>%
+#   bind_cols(.,dat) %>%
+#   st_sf() %>%
+#   st_cast("POLYGON")
+# #rename columns to max names
+# dat2 <- dat2 %>%
+#   mutate(developed19 = new_developed19) %>%
+#   mutate(forest19 = new_forest19) %>%
+#   mutate(farm19 = new_farm19) %>%
+#   mutate(wetlands19 = new_wetlands19) %>%
+#   mutate(otherUndeveloped19 = new_otherUndeveloped19) %>%
+#   mutate(water19 = new_water19)
+
 
 dat2 %>%
   gather(var,value,developed19:water19) %>%
@@ -1315,6 +1304,22 @@ dat2 %>%
     labs(title = "Land Cover Types, 2019",
          subtitle = "As fishnet centroids") +
    mapTheme
+
+```
+Reformat 2019 Land Cover for Model, preserving 2001 Land Cover values as new columns
+```{r}
+dat2 <- dat2 %>%
+    mutate(farm01 = farm) %>%
+    mutate(forest01 = forest) %>%
+    mutate(wetlands01 = wetlands) %>%
+    mutate(water01 = water) %>%
+    mutate(otherUndeveloped01 = otherUndeveloped) %>%
+# 2019 land cover
+    mutate(farm = farm19) %>%
+    mutate(forest = forest19) %>%
+    mutate(wetlands = wetlands19) %>%
+    mutate(water = water19) %>%
+    mutate(otherUndeveloped = otherUndeveloped19)
 ```
 
 ## 6.3. Sensitive Land Cover Lost
@@ -1324,8 +1329,8 @@ Below an indicator `sensitive_lost` is created indicating grid cells that were e
 ```{r, warning = FALSE, message = FALSE, fig.height = 6, fig.width= 6}
 dat2 <-
   dat2 %>%
-   mutate(sensitive_lost19 = ifelse(forest == 1 & forest19 == 0 |
-                                    wetlands == 1 & wetlands19 == 0,1,0))
+   mutate(sensitive_lost19 = ifelse(forest01 == 1 & forest19 == 0 |
+                                    wetlands01 == 1 & wetlands19 == 0,1,0))
                       
 ggplot() +
   geom_sf(data=dat2, aes(fill =as.factor(sensitive_lost19)), color = "transparent") +
