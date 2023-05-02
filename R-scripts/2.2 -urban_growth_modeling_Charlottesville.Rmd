@@ -911,10 +911,12 @@ Model5 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDeve
                  distance_highways + slope + pop_Change_00_20 + total_population2020,
                 family="binomial"(link="logit"), data = datTrain)               
 
-Model6 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment + total_population +
-                 distance_highways + slope + pop_Change_00_20 + total_population2020,
+Model6 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment +
+                 distance_highways + slope + pop_Change_00_20
                  + total_housing_units  + total_white,
                 family="binomial"(link="logit"), data = datTrain)
+
+
 ```
 
 Below codes create a data frame of psudeo R Squares for each model and plotting them for comparison. This approach loops through the models retrieving the goodness of fit for each. `Model6` is the final model employed for prediction.
