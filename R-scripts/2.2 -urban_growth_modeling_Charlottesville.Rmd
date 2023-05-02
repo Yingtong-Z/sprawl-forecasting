@@ -64,6 +64,7 @@ library(gridExtra)
 library(viridis)
 library(igraph)
 library(mapview)
+library(exactextractr)
 
 
 plotTheme <- theme(
@@ -684,17 +685,20 @@ ggplot() +
 ```{r}
 SlopeRaster <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/9f810ec8e1e9774c51d83194e22848e8240d26f7/data/Cville_Slope.tif")
 
-# Use aggregateRaster to aggregate the Slope raster with dat
-aggregated_slope <- aggregateRaster(SlopeRaster, dat)
+# Check the CRS of the raster and the fishnet data
+raster_crs <- crs(SlopeRaster)
+fishnet_crs <- st_crs(dat)
 
-# Convert the aggregated Slope raster to a data frame
-aggregated_slope_df <- as.data.frame(aggregated_slope, xy = TRUE)
+# If CRS doesn't match, reproject the fishnet data to match the raster CRS
+if (raster_crs != fishnet_crs) {
+  dat <- st_transform(dat, raster_crs)
+}
 
-# Combine the aggregated Slope raster data frame with the dat dataset
-dat <- aggregated_slope_df %>%
-  st_as_sf(coords = c("x", "y"), crs = st_crs(dat)) %>%
-  st_join(dat) %>%
-  st_cast("POLYGON")
+# Calculate the mean raster values within each fishnet cell
+mean_values <- exact_extract(SlopeRaster, dat, fun = 'mean')
+
+# Add the mean values as a new column to the fishnet data
+dat$slope <- mean_values
 ```
 
 ## 2.7. The Spatial Lag of Development
