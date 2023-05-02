@@ -216,7 +216,6 @@ We now plot the MSA.
 
 ```{r plot_msa, warning= FALSE, message= FALSE}
 ggplot() +
-  geom_sf(data=CvilleMSA) +
   geom_raster(data=rast(lc_change) %>% na.omit %>% filter(value > 0), 
               aes(x,y,fill=as.factor(value))) +
   scale_fill_viridis(direction = -1, discrete=TRUE, name ="Land Cover\nChange") +
@@ -255,17 +254,6 @@ ggplot() +
   labs(title="Development Land Use Change") +
   mapTheme
 ```
-
-<!-- Next, the fishnet is created at 4000 by 4000 foot resolution and subset it to the Houston MSA with `st_intersection`.  -->
-
-<!-- ```{r, warning = FALSE, message = FALSE} -->
-<!-- CvilleMSA <-  -->
-<!--   st_make_grid(houstonMSA, 4000) %>% -->
-<!--   st_sf() -->
-
-<!-- CvilleMSA <- -->
-<!--   CvilleMSA[houstonMSA,] -->
-<!-- ``` -->
 
 The vector fishnet is then plotted.
 
@@ -691,19 +679,19 @@ ggplot() +
 
 ## 2.6. Add Slope Variable
 ```{r}
-# SlopeRaster <- raster("/Users/oliveratwood/Documents/GitHub/sprawl-forecasting/data/Cville_Slope.tif")
-# 
-# # Use aggregateRaster to aggregate the Slope raster with dat
-# aggregated_slope <- aggregateRaster(SlopeRaster, dat)
-# 
-# # Convert the aggregated Slope raster to a data frame
-# aggregated_slope_df <- as.data.frame(aggregated_slope, xy = TRUE)
-# 
-# # Combine the aggregated Slope raster data frame with the dat dataset
-# dat <- aggregated_slope_df %>%
-#   st_as_sf(coords = c("x", "y"), crs = st_crs(dat)) %>%
-#   st_join(dat) %>%
-#   st_cast("POLYGON")
+SlopeRaster <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/9f810ec8e1e9774c51d83194e22848e8240d26f7/data/Cville_Slope.tif")
+
+# Use aggregateRaster to aggregate the Slope raster with dat
+aggregated_slope <- aggregateRaster(SlopeRaster, dat)
+
+# Convert the aggregated Slope raster to a data frame
+aggregated_slope_df <- as.data.frame(aggregated_slope, xy = TRUE)
+
+# Combine the aggregated Slope raster data frame with the dat dataset
+dat <- aggregated_slope_df %>%
+  st_as_sf(coords = c("x", "y"), crs = st_crs(dat)) %>%
+  st_join(dat) %>%
+  st_cast("POLYGON")
 ```
 
 ## 2.7. The Spatial Lag of Development
@@ -1320,6 +1308,8 @@ dat2 <- dat2 %>%
     mutate(wetlands = wetlands19) %>%
     mutate(water = water19) %>%
     mutate(otherUndeveloped = otherUndeveloped19)
+
+
 ```
 
 ## 6.3. Sensitive Land Cover Lost
@@ -1445,10 +1435,10 @@ Albemarle <-
     left_join(countyPopulation_2040) %>%
     mutate(proportion_of_county_pop = total_population2020 / county_population_2020,
            pop_2040.infill = proportion_of_county_pop * county_projection_2040,
-           pop_Change = round(pop_2040.infill - total_population2020),2) %>%
+           pop_Change = (pop_2040.infill - total_population2020)) %>%
     dplyr::select(-county_projection_2040, -county_population_2020, 
                   -proportion_of_county_pop, -pop_2040.infill) %>%
-    mutate(Development_Demand = predict(Model3, dat2, type="response")) %>%
+    mutate(Development_Demand = predict(Model6, dat2, type="response")) %>%
     filter(NAME == "Albemarle") 
 
 
@@ -1463,7 +1453,7 @@ ggplot() +
   geom_sf(data=Albemarle, aes(fill=factor(ntile(Development_Demand,5))), colour=NA) +
   geom_point(data=Albemarle_landUse, aes(x=xyC(Albemarle_landUse)[,1],
                                         y=xyC(Albemarle_landUse)[,2], colour=Land_Use),
-                                        shape = 15, size = 1) +
+                                        shape = 15, size = 3) +
   geom_sf(data=st_intersection(CvilleHighways,filter(studyAreaCounties, NAME=="Albemarle")), size=2) +
   scale_fill_manual(values = palette5, name="Development_Demand",
                     labels=substr(quintileBreaks(Albemarle,"Development_Demand"),1,5)) +
@@ -1475,7 +1465,7 @@ ggplot() +
   geom_sf(data=Albemarle, aes(fill=factor(ntile(pop_Change,5))), colour=NA) +
   geom_point(data=Albemarle_landUse, aes(x=xyC(Albemarle_landUse)[,1],
                                         y=xyC(Albemarle_landUse)[,2], colour=Land_Use),
-                                        shape = 15, size = 0.1) +
+                                        shape = 15, size = 3) +
   geom_sf(data=st_intersection(CvilleHighways,filter(studyAreaCounties, NAME=="Albemarle")), size=2) +
   scale_fill_manual(values = palette5, name="Population_Change",
                     labels=substr(quintileBreaks(Albemarle,"pop_Change"),1,5)) +
