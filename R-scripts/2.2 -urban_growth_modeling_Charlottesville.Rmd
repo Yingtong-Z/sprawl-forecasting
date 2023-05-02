@@ -788,7 +788,7 @@ dat <-
     fishnetHHunit00,fishnetPopulation00,fishnetVacHH00,
     fishnetWhiteP00,fishnetPopulation20,fishnet_pop_change_00_20,aggregatedRasters,
     fishnetHHunit20, fishnetWhiteP20) %>%
-  dplyr::select(lc_change, developed, forest, farm, wetlands, otherUndeveloped, water,
+  dplyr::select(lc_change, developed, forest, farm, wetlands, otherUndeveloped, slope,water,
                 total_population,total_graduate_degree_holders,total_housing_units,
                 total_vacant_households,total_white,total_population2020,pop_Change_00_20,distance_highways, lagDevelopment, total_housing_units2020, total_white2020) %>%
   st_join(studyAreaCounties) %>%
@@ -1229,12 +1229,16 @@ dat2 <- dat2 %>%
     mutate(wetlands01 = wetlands) %>%
     mutate(water01 = water) %>%
     mutate(otherUndeveloped01 = otherUndeveloped) %>%
+    mutate(total_housing_units01 = total_housing_units) %>%
+    mutate(total_white01 = total_white)
 # 2019 land cover
     mutate(farm = farm19) %>%
     mutate(forest = forest19) %>%
     mutate(wetlands = wetlands19) %>%
     mutate(water = water19) %>%
-    mutate(otherUndeveloped = otherUndeveloped19)
+    mutate(otherUndeveloped = otherUndeveloped19) %>%
+    mutate(total_housing_units = total_housing_units2020) %>%
+    mutate(total_white = total_white2020)
 
 
 ```
