@@ -609,6 +609,8 @@ interpolate_column2020 <- function(column_name) {
 }
 
 fishnetPopulation20 <- interpolate_column2020('total_population2020')
+fishnetHHunit20 <- interpolate_column2020('total_housing_units2020')
+fishnetWhiteP20 <- interpolate_column2020('total_white2020')
 
 fishnet_pop_change_00_20 <- 
   cbind(fishnetPopulation00,fishnetPopulation20) %>%
@@ -787,10 +789,11 @@ dat <-
   cbind(
     fishnet, highwayPoints_fishnet,fishnetGraduate00,
     fishnetHHunit00,fishnetPopulation00,fishnetVacHH00,
-    fishnetWhiteP00,fishnetPopulation20,fishnet_pop_change_00_20,aggregatedRasters) %>%
+    fishnetWhiteP00,fishnetPopulation20,fishnet_pop_change_00_20,aggregatedRasters,
+    fishnetHHunit20, fishnetWhiteP20) %>%
   dplyr::select(lc_change, developed, forest, farm, wetlands, otherUndeveloped, water,
                 total_population,total_graduate_degree_holders,total_housing_units,
-                total_vacant_households,total_white,total_population2020,pop_Change_00_20,distance_highways, lagDevelopment) %>%
+                total_vacant_households,total_white,total_population2020,pop_Change_00_20,distance_highways, lagDevelopment, total_housing_units2020, total_white2020) %>%
   st_join(studyAreaCounties) %>%
   mutate(NAME = ifelse(NAME == "Charlottesville", "Charlottesville", "Albemarle")) %>% 
   mutate(developed10 = ifelse(lc_change == 1 & developed == 1, 0, developed)) %>%
