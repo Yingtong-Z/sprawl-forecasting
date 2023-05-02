@@ -206,11 +206,11 @@ Note that `lc_change` is projected as `NAD 1983 StatePlane Virginia South FIUS` 
 ```{r load_data, warning = FALSE, message = FALSE, results = "hide"}
 CvilleMSA <-
   # High-Resolution Version:
-  # st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Hex.geojson") %>%
+  st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Hex.geojson") %>%
   # Medium-Resolution Version:
   # st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/a3649c5ff06585500c219b3990991065ad3c0a6d/data/Cville_Tesselated_Coarse.geojson") %>%
   # Low-Resolution Version:
-  st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/a3649c5ff06585500c219b3990991065ad3c0a6d/data/Cville_Tesselated_Coarser.geojson") %>%
+  # st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/a3649c5ff06585500c219b3990991065ad3c0a6d/data/Cville_Tesselated_Coarser.geojson") %>%
   st_transform('EPSG:2284')
 
 lc_change = raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/LC_Change_2001_2019.tif")
@@ -1226,13 +1226,14 @@ dat2 %>%
 Reformat 2019 Land Cover for Model, preserving 2001 Land Cover values as new columns
 ```{r}
 dat2 <- dat2 %>%
+# 2001 land cover
     mutate(farm01 = farm) %>%
     mutate(forest01 = forest) %>%
     mutate(wetlands01 = wetlands) %>%
     mutate(water01 = water) %>%
     mutate(otherUndeveloped01 = otherUndeveloped) %>%
     mutate(total_housing_units01 = total_housing_units) %>%
-    mutate(total_white01 = total_white)
+    mutate(total_white01 = total_white) %>% 
 # 2019 land cover
     mutate(farm = farm19) %>%
     mutate(forest = forest19) %>%
@@ -1386,7 +1387,7 @@ ggplot() +
   geom_sf(data=Albemarle, aes(fill=factor(ntile(Development_Demand,5))), colour=NA) +
   geom_point(data=Albemarle_landUse, aes(x=xyC(Albemarle_landUse)[,1],
                                         y=xyC(Albemarle_landUse)[,2], colour=Land_Use),
-                                        shape = 15, size = 3) +
+                                        shape = 16, size = 0.5) +
   geom_sf(data=st_intersection(CvilleHighways,filter(studyAreaCounties, NAME=="Albemarle")), size=2) +
   scale_fill_manual(values = palette5, name="Development_Demand",
                     labels=substr(quintileBreaks(Albemarle,"Development_Demand"),1,5)) +
@@ -1398,7 +1399,7 @@ ggplot() +
   geom_sf(data=Albemarle, aes(fill=factor(ntile(pop_Change,5))), colour=NA) +
   geom_point(data=Albemarle_landUse, aes(x=xyC(Albemarle_landUse)[,1],
                                         y=xyC(Albemarle_landUse)[,2], colour=Land_Use),
-                                        shape = 15, size = 3) +
+                                        shape = 16, size = 0.5) +
   geom_sf(data=st_intersection(CvilleHighways,filter(studyAreaCounties, NAME=="Albemarle")), size=2) +
   scale_fill_manual(values = palette5, name="Population_Change",
                     labels=substr(quintileBreaks(Albemarle,"pop_Change"),1,5)) +
@@ -1407,6 +1408,51 @@ ggplot() +
   guides(fill = guide_legend(order = 1), colour = guide_legend(order = 2)), ncol=2)
 
 ```
+
+```{r, warning = FALSE, message = FALSE, fig.height= 8, fig.width= 11}
+Charlottesville <-
+  dat2 %>%   #calculate population change
+    left_join(countyPopulation_2040) %>%
+    mutate(proportion_of_county_pop = total_population2020 / county_population_2020,
+           pop_2040.infill = proportion_of_county_pop * county_projection_2040,
+           pop_Change = (pop_2040.infill - total_population2020)) %>%
+    dplyr::select(-county_projection_2040, -county_population_2020, 
+                  -proportion_of_county_pop, -pop_2040.infill) %>%
+    mutate(Development_Demand = predict(Model6, dat2, type="response")) %>%
+    filter(NAME == "Charlottesville") 
+
+
+Charlottesville_landUse <- rbind(
+  filter(Charlottesville, forest19 == 1 | wetlands19 == 1 ) %>%
+  dplyr::select() %>% mutate(Land_Use = "Not Suitable"),
+  filter(Charlottesville, developed19 == 1) %>%
+  dplyr::select() %>% mutate(Land_Use = "Developed"))
+
+grid.arrange(
+ggplot() +
+  geom_sf(data=Charlottesville, aes(fill=factor(ntile(Development_Demand,5))), colour=NA) +
+  geom_point(data=Charlottesville_landUse, aes(x=xyC(Charlottesville_landUse)[,1],
+                                        y=xyC(Charlottesville_landUse)[,2], colour=Land_Use),
+                                        shape = 16, size = 3) +
+  scale_fill_manual(values = palette5, name="Development_Demand",
+                    labels=substr(quintileBreaks(Charlottesville,"Development_Demand"),1,5)) +
+  scale_colour_manual(values = c("black","red")) +
+  labs(title = "Development Potential, 2040: Charlottesville") + mapTheme +
+  guides(fill = guide_legend(order = 1), colour = guide_legend(order = 2)),
+
+ggplot() +
+  geom_sf(data=Charlottesville, aes(fill=factor(ntile(pop_Change,5))), colour=NA) +
+  geom_point(data=Charlottesville_landUse, aes(x=xyC(Charlottesville_landUse)[,1],
+                                        y=xyC(Charlottesville_landUse)[,2], colour=Land_Use),
+                                        shape = 16, size = 3) +
+  scale_fill_manual(values = palette5, name="Population_Change",
+                    labels=substr(quintileBreaks(Albemarle,"pop_Change"),1,5)) +
+  scale_colour_manual(values = c("black","red")) +
+  labs(title = "Projected Population, 2040: Charlottesville") + mapTheme +
+  guides(fill = guide_legend(order = 1), colour = guide_legend(order = 2)), ncol=2)
+
+```
+
 </div>
 The plots above are created using a `ggplot` trick to show what appears to be overlayed polygons (fishnet grid cells). ggplot does not natively allow multiple aesthetics (`aes`) of the same style. In practice, this means it is not possible to have two `scale_fill_manual` parameters and thus, two legends for the same map. This limitation is cleverly avoided by plotting `fortBend_landUse` as colored points (as opposed to filled grid cells). In the `geom_point` parameter above, the points are set to `shape = 15`, which is a filled box. This box can then be sized to make it appear like a fishnet grid cell.
 
@@ -1417,123 +1463,123 @@ We stop short in actually allocating land to development. While the model is wel
 ![Montgomery County](https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/images/montgomery.png)
 
 
-# 8. Appendix
+<!-- # 8. Appendix -->
 
-_This is new material describing how you can determine land cover change from land cover rasters for two time periods_
+<!-- _This is new material describing how you can determine land cover change from land cover rasters for two time periods_ -->
 
-## 8.1. Calculating Land Cover Change
+<!-- ## 8.1. Calculating Land Cover Change -->
 
-For your assignment, you are going to need to get land cover data for two new time periods and figure out what areas developed in that interval (and then model it). In the workflow above, we used a the NLCD land cover change data set, but we could also have calculated our own version using the 2001 and 2011 data sets. You could do this in R, or ArcGIS for your assignment. Here is an abbreviated workflow for doing it in R using the data from this exercise:
+<!-- For your assignment, you are going to need to get land cover data for two new time periods and figure out what areas developed in that interval (and then model it). In the workflow above, we used a the NLCD land cover change data set, but we could also have calculated our own version using the 2001 and 2011 data sets. You could do this in R, or ArcGIS for your assignment. Here is an abbreviated workflow for doing it in R using the data from this exercise: -->
 
-Reclassify 2001 and 2011 land cover databases to consist of 1 and 0 observations (e.g. 1 is the developed classes 13-24, 0 is everything else). 
+<!-- Reclassify 2001 and 2011 land cover databases to consist of 1 and 0 observations (e.g. 1 is the developed classes 13-24, 0 is everything else).  -->
 
-```{r}
-reclassMatrix <- 
-  matrix(c(
-    0,12,0,
-    12,24,1,
-    24,Inf,0),
-  ncol=3, byrow=T)
-```
+<!-- ```{r} -->
+<!-- reclassMatrix <-  -->
+<!--   matrix(c( -->
+<!--     0,12,0, -->
+<!--     12,24,1, -->
+<!--     24,Inf,0), -->
+<!--   ncol=3, byrow=T) -->
+<!-- ``` -->
 
-```{r, warning = FALSE, message = FALSE}
-developed_2001 <- 
-  reclassify(lc_2001,reclassMatrix)
+<!-- ```{r, warning = FALSE, message = FALSE} -->
+<!-- developed_2001 <-  -->
+<!--   reclassify(lc_2001,reclassMatrix) -->
 
-developed_2011 <- 
-  reclassify(lc_2011,reclassMatrix)
+<!-- developed_2011 <-  -->
+<!--   reclassify(lc_2011,reclassMatrix) -->
 
-```
+<!-- ``` -->
 
-Then do some map algebra to find the places where land cover changed. Let's see a quick histogram of the values - these should range from 0 (undeveloped in 2001, undeveloped in 2011), 1 (undeveloped in 2001, developed in 2011 (presuming nothing went from developed to undeveloped)), and 2 (developed in both periods). The 1's represent the change.
+<!-- Then do some map algebra to find the places where land cover changed. Let's see a quick histogram of the values - these should range from 0 (undeveloped in 2001, undeveloped in 2011), 1 (undeveloped in 2001, developed in 2011 (presuming nothing went from developed to undeveloped)), and 2 (developed in both periods). The 1's represent the change. -->
 
-```{r, warning = FALSE, message = FALSE}
+<!-- ```{r, warning = FALSE, message = FALSE} -->
 
-development_change <- developed_2001+developed_2011
+<!-- development_change <- developed_2001+developed_2011 -->
 
-hist(development_change)
-```
+<!-- hist(development_change) -->
+<!-- ``` -->
 
-We can subsequently turn any of the 0's and 1's to NA
+<!-- We can subsequently turn any of the 0's and 1's to NA -->
 
-```{r, warning = FALSE, message = FALSE}
-development_change[development_change != 1] <- NA
+<!-- ```{r, warning = FALSE, message = FALSE} -->
+<!-- development_change[development_change != 1] <- NA -->
 
-ggplot() +
-  geom_sf(data=houstonMSA) +
-  geom_raster(data=rast(development_change) %>% na.omit, 
-              aes(x,y,fill=as.factor(value))) +
-  scale_fill_viridis(discrete=TRUE, name ="Land Cover\nChange") + 
-  labs(title="Development land use change") +
-  mapTheme
-```
+<!-- ggplot() + -->
+<!--   geom_sf(data=houstonMSA) + -->
+<!--   geom_raster(data=rast(development_change) %>% na.omit,  -->
+<!--               aes(x,y,fill=as.factor(value))) + -->
+<!--   scale_fill_viridis(discrete=TRUE, name ="Land Cover\nChange") +  -->
+<!--   labs(title="Development land use change") + -->
+<!--   mapTheme -->
+<!-- ``` -->
 
-## 8.2. Downsampling Rasters
+<!-- ## 8.2. Downsampling Rasters -->
 
-Notice that we used 4000x4000 unit grid cells in this analysis to keep small grid cell sizes from crushing our laptops while we did this plotting and geo-processing. This is very simple to do in R - the below code takes our `development_change` raster and downsamples it by a factor of two using the `aggregate` function. You could load an original data set in at the beginning of your analysis and downsample it before you get started.
+<!-- Notice that we used 4000x4000 unit grid cells in this analysis to keep small grid cell sizes from crushing our laptops while we did this plotting and geo-processing. This is very simple to do in R - the below code takes our `development_change` raster and downsamples it by a factor of two using the `aggregate` function. You could load an original data set in at the beginning of your analysis and downsample it before you get started. -->
 
-```{r, warning = FALSE}
+<!-- ```{r, warning = FALSE} -->
 
-development_change
+<!-- development_change -->
 
-aggregate(development_change, fact = 2)
+<!-- aggregate(development_change, fact = 2) -->
 
-```
+<!-- ``` -->
 
-## 8.3. Cropping Rasters
-Say you have rasters that you would like to manipulate in R instead of in ArcGIS. If you have data covering the study area, you can use this as the extent to which you would like to crop the data, and then use `mask` to clip the data to the exact boundaries.
+<!-- ## 8.3. Cropping Rasters -->
+<!-- Say you have rasters that you would like to manipulate in R instead of in ArcGIS. If you have data covering the study area, you can use this as the extent to which you would like to crop the data, and then use `mask` to clip the data to the exact boundaries. -->
 
-First, read in the resampled raster of land cover around Atlanta, Georgia from 2001 and then plot it.
+<!-- First, read in the resampled raster of land cover around Atlanta, Georgia from 2001 and then plot it. -->
 
-```{r message=FALSE, warning=FALSE}
-lc_atl_2001 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/data/atl_lc01_resamp_new.tif")
+<!-- ```{r message=FALSE, warning=FALSE} -->
+<!-- lc_atl_2001 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/data/atl_lc01_resamp_new.tif") -->
 
-plot(lc_atl_2001)
-```
-
-
-We will also read in Atlanta counties for the extent of the bounding box, and then `crop` the raster to the counties.
-
-```{r message=FALSE, warning=FALSE}
-atl_counties <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/data/Counties_Atlanta_Region.geojson") %>% st_transform("ESRI:102667") # ESRI 1983 state plane GA west
-
-lc_atl_2001_crop <- crop(lc_atl_2001, extent(atl_counties))
-
-plot(lc_atl_2001_crop)
-```
+<!-- plot(lc_atl_2001) -->
+<!-- ``` -->
 
 
-Then, `mask` the raster using the Atlanta are counties. This is similar to the "clipping" process for vector data.
+<!-- We will also read in Atlanta counties for the extent of the bounding box, and then `crop` the raster to the counties. -->
 
-```{r message=FALSE, warning=FALSE}
-lc_atl_2001_mask <- mask(lc_atl_2001_crop, atl_counties)
-plot(lc_atl_2001_mask)
-```
+<!-- ```{r message=FALSE, warning=FALSE} -->
+<!-- atl_counties <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/data/Counties_Atlanta_Region.geojson") %>% st_transform("ESRI:102667") # ESRI 1983 state plane GA west -->
 
+<!-- lc_atl_2001_crop <- crop(lc_atl_2001, extent(atl_counties)) -->
 
-## 8.4 Updated Census Data Calls
-
-In section 2.4, census data was pulled using the `get_decennial`; however, if you are using a different timeframe, you you will use data from the American Community Survey (ACS). You will replace `get_decennial` with `get_acs` in your project's workflow. The code chunk below shows how to use `get_acs` to obtain population data from the counties in the Houston MSA in 2019. Note that `get_acs` returns both an estimate (denoted with an "E") and a margin of error (denoted with an "M"). We use the `select` command in `dplyr` to only retain estimate version of the variable.
+<!-- plot(lc_atl_2001_crop) -->
+<!-- ``` -->
 
 
-```{r, warning = FALSE, message = FALSE, results = "hide"}
-# Specify which variable(s) you would like to grab. Here, only one (Total Population) is listed, but you could add more to the call.
-acs_vars <- c("B02001_001E")
+<!-- Then, `mask` the raster using the Atlanta are counties. This is similar to the "clipping" process for vector data. -->
 
-# Using "tract" as the geography and 2019 as the year, download data data for the Houston MSA counties listed.
-houstonPop19 <- get_acs(geography = "tract", 
-                        variables = acs_vars, 
-                        year = 2019,
-                        state = 48, 
-                        geometry = TRUE, 
-                        output = "wide",
-                        county=c("Harris COunty","San Jacinto","Montgomery","Liberty","Waller",
-                         "Austin","Chambers","Fort Bend","Brazoria","Galveston")) %>%
-                rename(pop2019 = B02001_001E) %>%
-                dplyr::select(-starts_with("B"))
+<!-- ```{r message=FALSE, warning=FALSE} -->
+<!-- lc_atl_2001_mask <- mask(lc_atl_2001_crop, atl_counties) -->
+<!-- plot(lc_atl_2001_mask) -->
+<!-- ``` -->
 
-# Make sure to transform to the crs of the fishnet!
-houstonPop19 <- houstonPop19 %>%
-  st_transform(st_crs(CvilleMSA))
 
-```
+<!-- ## 8.4 Updated Census Data Calls -->
+
+<!-- In section 2.4, census data was pulled using the `get_decennial`; however, if you are using a different timeframe, you you will use data from the American Community Survey (ACS). You will replace `get_decennial` with `get_acs` in your project's workflow. The code chunk below shows how to use `get_acs` to obtain population data from the counties in the Houston MSA in 2019. Note that `get_acs` returns both an estimate (denoted with an "E") and a margin of error (denoted with an "M"). We use the `select` command in `dplyr` to only retain estimate version of the variable. -->
+
+
+<!-- ```{r, warning = FALSE, message = FALSE, results = "hide"} -->
+<!-- # Specify which variable(s) you would like to grab. Here, only one (Total Population) is listed, but you could add more to the call. -->
+<!-- acs_vars <- c("B02001_001E") -->
+
+<!-- # Using "tract" as the geography and 2019 as the year, download data data for the Houston MSA counties listed. -->
+<!-- houstonPop19 <- get_acs(geography = "tract",  -->
+<!--                         variables = acs_vars,  -->
+<!--                         year = 2019, -->
+<!--                         state = 48,  -->
+<!--                         geometry = TRUE,  -->
+<!--                         output = "wide", -->
+<!--                         county=c("Harris COunty","San Jacinto","Montgomery","Liberty","Waller", -->
+<!--                          "Austin","Chambers","Fort Bend","Brazoria","Galveston")) %>% -->
+<!--                 rename(pop2019 = B02001_001E) %>% -->
+<!--                 dplyr::select(-starts_with("B")) -->
+
+<!-- # Make sure to transform to the crs of the fishnet! -->
+<!-- houstonPop19 <- houstonPop19 %>% -->
+<!--   st_transform(st_crs(CvilleMSA)) -->
+
+<!-- ``` -->
