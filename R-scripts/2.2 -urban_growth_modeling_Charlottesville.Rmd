@@ -1283,8 +1283,6 @@ Next, each raster is aggregated to the fishnet using the `aggregateRaster` funct
 ```{r, warning = FALSE, message = FALSE}
 theRasterList19 <- c(developed19,forest19,farm19,wetlands19,otherUndeveloped19,water19)
 
-
-
 dat2 <-
   aggregateRaster(theRasterList19, dat_infill) %>%
   dplyr::select(developed19,forest19,farm19,wetlands19,otherUndeveloped19,water19) %>%
@@ -1292,6 +1290,14 @@ dat2 <-
   bind_cols(.,dat) %>%
   st_sf() %>%
   st_cast("POLYGON")
+
+# reassign cells with more than one lc value to just one based on hierarchy shown here
+dat2 <- dat2 %>%
+    mutate(farm = ifelse(developed19 == 0 & farm19 == 1, 1, 0)) %>%
+    mutate(forest = ifelse(developed19 == 0 & farm19 == 0 & forest19 == 1, 1, 0)) %>%
+    mutate(wetlands = ifelse(developed19 == 0 & farm19 == 0 & forest19 == 0 & wetlands19 == 1, 1, 0)) %>%
+    mutate(water = ifelse(developed19 == 0 & farm19 == 0 & forest19 == 0 & wetlands19 == 0 & water19 == 1, 1, 0)) %>%
+    mutate(otherUndeveloped = ifelse(developed19 == 0 & farm19 == 0 & forest19 == 0 & wetlands19 == 0 & water19 == 0 & otherUndeveloped19 == 1, 1, 0))
 
 dat2 %>%
   gather(var,value,developed19:water19) %>%
