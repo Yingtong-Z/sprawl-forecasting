@@ -1280,6 +1280,8 @@ Next, each raster is aggregated to the fishnet using the `aggregateRaster` funct
 ```{r, warning = FALSE, message = FALSE}
 theRasterList19 <- c(developed19,forest19,farm19,wetlands19,otherUndeveloped19,water19)
 
+
+
 dat2 <-
   aggregateRaster(theRasterList19, dat_infill) %>%
   dplyr::select(developed19,forest19,farm19,wetlands19,otherUndeveloped19,water19) %>%
@@ -1366,7 +1368,7 @@ The below `dplyr` statement takes as its input, `dat2`, which was created in Sec
 county_specific_metrics <- 
   dat2 %>%
   #predict development demand from our model
-  mutate(Development_Demand = predict(Model3, dat2, type="response")) %>%
+  mutate(Development_Demand = predict(Model6, dat2, type="response")) %>%
   #get a count count of grid cells by county which we can use to calculate rates below
   left_join(st_set_geometry(dat, NULL) %>% group_by(NAME) %>% summarize(count = n())) %>%
   #calculate summary statistics by county
