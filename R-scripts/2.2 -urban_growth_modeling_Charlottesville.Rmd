@@ -801,12 +801,11 @@ ggplot() +
 
 # 3. Exploratory Analysis
 
-add something
 In this section we explore the extent to which each features is associated with development change. If the goal was to predict a continuous variable, scatterplots and correlation coefficients make this process straightforward and relatively easy to explain to a non-technical decison maker.
 
 In this case however, the dependent variable is a binary outcome - either a grid cell was developed between 2001 and 2011 or it wasn’t. In this case, the relevant question is whether for a given feature, there is a statistically significant difference between areas that changed and areas that did not. These differences are explored in a set of plots below. For models with lots of features, these plots could be compliment by a series of difference in means statistical tests.
 
-The below code block `select`s the highways and spatial lag features, converts each to long form and plots each as bar plots. Note that `geom_bar` calculates the `mean`. How do you interpret each of these plots?
+The below code block `select`s the highways and spatial lag features, converts each to long form and plots each as bar plots. Note that `geom_bar` calculates the `mean`. The mean distance_highways is significantly lower for the `New Development` category compared to the `No Change` category, it indicates that new developments tend to be closer to highways. On the other hand, the mean `lagDevelopment` is significantly lower for the `New Development` category compared to the `No Change` category, it may imply that new development is more likely to occur in areas that are near existing development.
 
 ```{r, warning = FALSE, message = FALSE}
 dat %>%
@@ -822,7 +821,7 @@ dat %>%
     plotTheme 
 ```
 
-Next, the same visualization is created for the population related variables. How does this plot inform which features should be included in the model?
+Next, the same visualization is created for the population related variables. The higher mean values for `total_population`, `total_population2020`, and `pop_Change_00_20` in the `New Development` category suggest that development is more likely to occur in areas with higher populations and greater population growth. 
 
 ```{r, warning = FALSE, message = FALSE}
 dat %>%
@@ -838,7 +837,10 @@ dat %>%
     plotTheme
 ```
 
-Next, a table of land cover conversion between 2001 and 2019 is created. The table suggests for instance, that 0.71% of farmland regionally was converted to development between 2001 and 2019. This indicator should be interpreted in the context of the scale changes we imposed on the data by moving from a 30ft by 30ft raster to a 4000ft by 4000ft fishnet. This is the same reason why the table suggests `developed` area was then “developed”.
+Next, a table of land cover conversion between 2001 and 2019 is created. The table suggests for instance, that 0.71% of The plots above suggest that the continuous variable (e.g., `distance_highways`, `lagDevelopment`, population related variables) has an association with the occurrence of new development.
+
+
+Next, a table of land cover conversion between 2001 and 2019 is created. The table suggests for instance, that 0.77% of farmland regionally was converted to development between 2001 and 2019. 
 
 ```{r, warning = FALSE, message = FALSE}
 dat %>%
@@ -853,8 +855,6 @@ dat %>%
   dplyr::select(Land_Cover_Type,Conversion_Rate) %>%
   kable() %>% kable_styling(full_width = F)
 ```
-
-
 
 
 # 4. Predicting for 2010
@@ -881,7 +881,7 @@ nrow(dat)
 
 Next six separate `glm` models are estimated adding new variables for each. Figure 4.1 shows the Psuedo R-Squared associated with each model.
 
-`Model1` includes only the 2001 land cover types. `Model2` adds the `lagDevelopment`. Models 3, 4 and 5 attempt three different approaches for modeling population change. `Model3` uses population in 2000; `Model4` uses 2000 and 2010 population; and `Model5` uses population change. All are significant so which population feature should be chosen? The answer lies in how the model will be used to forecast. By modeling population change between 2000 and 2010, the model is well specified to forecast 2020 development by having `pop_Change` indicate change between 2010 and 2020. `Model6` includes distance to the highways, and is the final model employed for prediction.
+`Model1` includes only the 2001 land cover types. `Model2` adds the `lagDevelopment`. Models 3, 4 and 5 attempt three different approaches for modeling demographic changes, infrastructure and slope. `Model3` uses population in 2000 and distance to highway; `Model4` adds 2020 slope on top of Model3; `Model5` adds population change; and `Model6` adds demographic features. All are significant so which population feature should be chosen? The answer lies in how the model will be used to forecast. 
 
 ```{r, warning = FALSE, message = FALSE}
 Model1 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped, 
@@ -911,7 +911,7 @@ Model6 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDeve
 
 ```
 
-Working carefully through the below code block, a very concise approach for creating a data frame of psudeo R Squares for each model and plotting them for comparison. Recall, `pR2` is the function for psuedo R squared. Dissect the line that uses the `map_dfc` function to see how this approach loops through the models retrieving the goodness of fit for each.
+Below codes create a data frame of psudeo R Squares for each model and plotting them for comparison. This approach loops through the models retrieving the goodness of fit for each. `Model6` is the final model employed for prediction.
 
 ```{r, warning = FALSE, message = FALSE}
 modelList <- paste0("Model", 1:6)
@@ -942,11 +942,9 @@ ggplot(testSetProbs, aes(probs)) +
 
 ## 4.3. Accuracy
 
-Now to pick a predicted probability threshold to classify an area as having new development. Recall, *Sensitivity* or the True Positive rate is the proportion of actual positives (1’s) that were predicted to be positive. For example, the Sensitivity in our model is the rate of developed areas actually predicted as such. *Specificity* or True Negative Rate is the proportion of actual negatives (0’s) that were predicted to be negatives. For example, the Specificity in our model is the rate of No Change areas that were correctly predicted as No change.
+Now to pick a predicted probability threshold to classify an area as having new development. *Sensitivity* or the True Positive rate is the proportion of actual positives (1’s) that were predicted to be positive. For example, the Sensitivity in our model is the rate of developed areas actually predicted as such. *Specificity* or True Negative Rate is the proportion of actual negatives (0’s) that were predicted to be negatives. For example, the Specificity in our model is the rate of No Change areas that were correctly predicted as No change.
 
-It is important to consider what Planners would typically optimize for given this use case. One approach is to maximize the number of 1’s predicted correctly (Sensitivity) so as to not under or over-predict new development. It may okay in this use case to incorrectly predict no change as changed (Specificity). An abundance of False Negative errors may be reasonable if Planners don’t mind over emphasizing development potential. It is important to remember that below this potential will evaluated alongside supply-side indicators such as the presence of sensitive land.
-
-There are some clear tradeoffs between Sensitivity and Specificity in our model that deserve some exploration. To illustrate, two different thresholds of 5% and 17% are explored. Predicted classes for both thresholds are generated and instead of using the `confusionMatrix` function from `caret` as we have in the past, here confusion matrix metrics are derived from the `yardstick` package. This allows us to `group_by` the threshold and `summarize` the metrics of interest.
+There are some clear tradeoffs between Sensitivity and Specificity in our model that deserve some exploration. To illustrate, two different thresholds of 13% and 30% are explored. Predicted classes for both thresholds are generated and instead of using the `confusionMatrix` function from `caret` as we have in the past, here confusion matrix metrics are derived from the `yardstick` package. This allows us to `group_by` the threshold and `summarize` the metrics of interest.
 
 The `options` call below is required to tell `yardstick` that the positive factor class in `testSetProbs` is `1`. Without it, yardstick will by default, see the first factor level as `0` and flip the confusion metrics around.
 
@@ -969,11 +967,9 @@ testSetProbs %>%
   kable_styling(full_width = F)
 ```
 
-The 5% threshold correctly predicts a higher number of new development areas (Sensitivity), but incorrectly predicts a lower number of no change areas (Specificity). As there are far more no change areas in the data, this is reflected in a lower overall accuracy. Conversely, the 17% threshold has a lower Sensitivity rate and but a far higher Specificity rate. Again, because of the dataset is majority no change areas, this leads to a far higher Accuracy rate.
+The 13% threshold correctly predicts a higher number of new development areas (Sensitivity), but incorrectly predicts a lower number of no change areas (Specificity). As there are far more no change areas in the data, this is reflected in a lower overall accuracy. Conversely, the 30% threshold has a lower Sensitivity rate and but a far higher Specificity rate. Again, because of the dataset is majority no change areas, this leads to a far higher Accuracy rate.
 
-Given the use case, and the spatial distribution of land cover change, it may be more useful to have a model that predicts generally where new development occurs rather than one that predicts precisely where. As illustrated below, the 17% threshold provides this outcome. These trade-offs can be visualized in the plot below. Here the model is used to predict for the entire `dat` dataset. Which threshold looks more reasonable given the distribution of observed development change?
-
-Note that these indicators are converted `as.factor` so they can be mapped with `scale_color_manual`.
+Given the use case, and the spatial distribution of land cover change, it may be more useful to have a model that predicts generally where new development occurs rather than one that predicts precisely where. As illustrated below, the 30% threshold provides this outcome. These trade-offs can be visualized in the plot below. Here the model is used to predict for the entire `dat` dataset. 30% threshold looks more reasonable given the distribution of observed development change.
 
 ```{r, warning = FALSE, message = FALSE}
 predsForMap <-         
@@ -999,7 +995,7 @@ ggplot() +
 ```
 </div>
 
-To provide a bit more insight, the code block below produces both true positives (Sensitivity) and true negatives (Specificity) for each grid cell by threshold type. Notice how the spatial pattern of Sensitivity for both thresholds is relatively consistent, but the 5% threshold misses most the study area with respect to Specificity.
+To provide a bit more insight, the code block below produces both true positives (Sensitivity) and true negatives (Specificity) for each grid cell by threshold type. Notice how the spatial pattern of Sensitivity for both thresholds is relatively consistent, but the 13% threshold misses most the study area with respect to Specificity.
 
 ```{r, warning = FALSE, message = FALSE}
 ConfusionMatrix.metrics <-
@@ -1028,94 +1024,17 @@ ggplot(data=ConfusionMatrix.metrics) +
 ```
 </div>
 
-## 4.4 Generalizability
 
-For this use case, it matters little whether the model generalizes well across random holdouts. Thus, regular cross-validation is substituted for spatial cross-validation. The latter is explicitly concerned with generalizability across space. The approach helps us understand whether our model is comparable to each county in the study area despite any possible differences in land use or land use planning.
-
-To test across-space generalizability, `spatialCV` function is run, which iteratively loops through `dat` having each county take a turn as the hold out test set. This is also called ‘Leave-one-group-out cross validation.’. A model is estimated for the n - 1 counties that remain and used to `predict` for the hold out county.
-
-```{r, warning = FALSE, message = FALSE}
-# spatialCV <- function(dataFrame, uniqueID, dependentVariable, modelName) {
-# 
-# #initialize a data frame 
-# endList <- list()
-# 
-# #create a list that is all the spatial group unqiue ids in the data frame (ie counties)    
-#   uniqueID_List <- unique(dataFrame[[uniqueID]])  
-#   x <- 1
-#   y <- length(uniqueID_List)
-#   
-# #create a counter and while it is less than the number of counties...  
-#   while(x <= y) 
-#   {
-# #call a current county    
-#     currentUniqueID <- uniqueID_List[x]
-# #create a training set comprised of units not in that county and a test set of units
-# #that are that county
-#     training <- dataFrame[ which(dataFrame[[uniqueID]] != uniqueID_List[x]),]
-#     testing <- dataFrame[ which(dataFrame[[uniqueID]] == uniqueID_List[x]),]
-# #create seperate xy vectors
-#     trainingX <- training[ , -which(names(training) %in% c(dependentVariable))]
-#     testingX <- testing[ , -which(names(testing) %in% c(dependentVariable))]
-#     
-#     trainY <- training[[dependentVariable]]
-#     testY <- testing[[dependentVariable]]
-# #Calculate predictions on the test county as part of a data frame including the observed
-# #outcome and the unique county ID    
-#    thisPrediction <- 
-#      data.frame(class = testY,
-#                 probs = predict(modelName, testingX, type="response"),
-#                 county = currentUniqueID) 
-# 
-# #Row bind the predictions to a data farme
-#    endList <- rbind(endList, thisPrediction)
-# #iterate counter    
-#     x <- x + 1 
-#   } 
-# #return the final list of counties and associated predictions  
-#   return (as.data.frame(endList))
-# }
-```
-
-Now the function is run; a 17% predicted probability threshhold is set and a facetted ROC plot for each county is created. It is important to note that Chambers, Austin, Waller, Liberty and San Jacinto each have ony between 1 and 13 grid cells that actually developed, so the below goodness of fit metrics are likely not useful.
-
-```{r, warning = FALSE, message = FALSE}
-# spatialCV_counties <-
-#   spatialCV(dat,"NAME","lc_change", Model6) %>%
-#   mutate(predClass = as.factor(ifelse(probs >= 0.17 ,1,0)))
-```
-
-To investigate the across-county generalizability of the model, the code block below produces and maps confusion matrix statistics by county. It is important to ensure as above, that the `yardstick.event_first` option is set.
-
-Some interesting patterns emerge. First, results for those counties with little `Observed_Change` are not meaningful. In places with substantial new development, Sensitivity rates are comparable with the results from the test set results on the entire study area. Harris County which contains the City of Houston, has the greatest Sensitivity level, which is reasonable given it contains most of the development. Specificity is low across the board, because the model predicts an abundance of developed areas. Again, this is less of a concern because these estimates will be offset by sensitive land cover in Section 7 below. For the most part, these confusion matrix metrics suggest the model is generalizable to those counties that underwent significant development change.
-
-```{r, warning = FALSE, message = FALSE}
-# spatialCV_metrics <-
-#   spatialCV_counties %>% 
-#     group_by(county) %>% 
-#     summarize(Observed_Change = sum(as.numeric(as.character(class))),
-#               Sensitivity = round(yardstick::sens_vec(class,predClass),2),
-#               Specificity = round(yardstick::spec_vec(class,predClass),2),
-#               Accuracy = round(yardstick::accuracy_vec(class,predClass),2)) 
-# 
-# spatialCV_metrics %>%
-#   kable() %>%
-#   kable_styling(full_width = F)
-```
 
 # 5. Predicting Land Cover Demand for 2040
 
-At this point, a simple but useful model has been trained to predict urban development between 2001 and 2019 as a function of baseline features from 2001 including land cover, built environment and population. Next, we are going to update our features to reflect a 2010 baseline. Having done so, predictions from our new model would then be for 2040.
+At this point, a simple but useful model has been trained to predict urban development between 2001 and 2019 as a function of baseline features from 2001 including land cover, built environment and population. Next, we are going to update our features to reflect a 2019 baseline. Having done so, predictions from our new model would then be for 2040.
 
-Generalizability is always the concern when forecasting, and for this use case Planners must ask themselves whether the 2001-2011 Houston experience generalizes to the 2010-2020 Houston experience. In other words, have the macroeconomic real estate conditions changed dramatically between the two time periods? This is question with no definitive answer, but it useful to consider the exogenous factors that may differentiate today’s Houston from that of 2011. The big for instance is climate change, and the aftermath of Hurricane Harvey. In August of 2017 Harvey devastated large portions of this region causing $125 billion in damage. If the real estate market capitalized flood risk into devastated areas going forward, this would effectively change the nature of real estate demand in the region. Thus the pre-flood, 2011 experienced is no longer entirely relevant.
+For brevity, we only update two features in our model for now. First, population change (`pop_change`) is updated using county level population projections visualized in the plot below. The second is `lagDevelopment`, which describes how predicted new development relates in space to old development.
 
-This would not completely invalidate the model if these changes are marginal, as development demand predictions can be adjusted in Section 7 below. However, consider the usefulness of this approach for a coastal city that looses say 10% of its developable land to sea level rise in the following decade.
+Once the features are updated, 2040 predictions are estimated and mapped.
 
-For brevity, we only update two features in our model. First, population change (`pop_change`) is updated using county level population projections visualized in the plot below. The second is `lagDevelopment`, which describes how predicted new development relates in space to old development.
-
-Once the features are updated, 2020 predictions are estimated and mapped.
-
-Below, `lagDevelopment` is mutate describing average distance to 2010 development. Note that the field name, `lagDevelopment` is unchanged (ie. not updated to `lagDevelopment_2010`). This is done purposefully as model6 has a regression coefficient called `lagDevelopment`. If this variable wasn’t present in our updated data frame then the `predict` command would fail.
+Below, `lagDevelopment` is mutate describing average distance to 2019 development. Note that the field name, `lagDevelopment` is unchanged (ie. not updated to `lagDevelopment_2019`). This is done purposefully as model6 has a regression coefficient called `lagDevelopment`. If this variable wasn’t present in our updated data frame then the `predict` command would fail.
 
 ```{r, warning = FALSE, message = FALSE}
 dat <-
@@ -1123,9 +1042,8 @@ dat <-
   mutate(lagDevelopment = nn_function(xyC(.), xyC(filter(.,developed10 == 2)),2))
 ```
 
-Now to update population change. A new data frame, `countyPopulation_2020` is created which includes 2010 population counts and 2020 projections for each county in the study area. Population is plotted by year and by county. Houston’s Harris County is projected to see the greatest population gains by far. Anecdotally, we know that much of Harris County is already developed, which suggests its development scenario will involve more ‘infill’ development then sprawl.
+Now to update population change. A new data frame, `countyPopulation_2040` is created which includes 2020 population counts and 2040 projections for each county in the study area. Population is plotted by year and by county. 
 
-??????not sure why this is plotting wrong. 2040 is definitely higher than 2020
 ```{r, warning = FALSE, message = FALSE}
 countyPopulation_2040 <- 
   data.frame(
@@ -1154,9 +1072,9 @@ countyPopulation_2040 %>%
 
 ## 5.2. Predicting Development Demand
 
-Next, the `countyPopulation_2020` table is joined to `dat` and `pop_change` in order to ‘distribute’ the new population across the study area. To do so, the the allocation of new population is weighted by a grid cell’s existing population (`pop_2020.infill`). 2010 population is subtracted from this figure to get `pop_Change`. Finally, `Model6` is used to predict for 2020 given the updated population change and lag development features.
+Next, the `countyPopulation_2040` table is joined to `dat` and `pop_change` in order to ‘distribute’ the new population across the study area. To do so, the the allocation of new population is weighted by a grid cell’s existing population (`pop_2040.infill`). 2020 population is subtracted from this figure to get `pop_Change`. Finally, `Model6` is used to predict for 2040 given the updated population change and lag development features.
 
-The map of predicted probabilities that results is best thought of as a measure of predicted development demand in 2020.
+The map of predicted probabilities that results is best thought of as a measure of predicted development demand in 2040.
 
 ```{r, warning = FALSE, message = FALSE}
 dat_infill <-
@@ -1192,17 +1110,17 @@ dat_infill %>%
 
 We now have a really strong indicator of development demand for 2020 to help guide local land use planning. Demand however, is only one side of the equation. It must balanced with the supply of environmentally sensitive land. Understanding the interplay between demand and supply is the first stage of the ‘Allocation’ phase, where Planners ultimately decide which land should be developed and which should not.
 
-For this analysis farmland and undeveloped land are be deemed `Suitable`, while environmentally sensitive areas like wetlands and forest are be deemed `Not Suitable`. Below, 2011 land cover data is read in and several measures of environmental sensitivity are created by county. These include:
+For this analysis farmland and undeveloped land are be deemed `Suitable`, while environmentally sensitive areas like wetlands and forest are be deemed `Not Suitable`. Below, 2019 land cover data is read in and several measures of environmental sensitivity are created by county. These include:
 
-1. The total amount of wetlands and forest land cover area in 2011.
-2. The amount of sensitive land (wetland and forest) lost between 2001 and 2011.
-3. The total area of large sensitive landscape ‘patches’ in 2011.
+1. The total amount of wetlands and forest land cover area in 2019.
+2. The amount of sensitive land (wetland and forest) lost between 2001 and 2019.
+3. The total area of large sensitive landscape ‘patches’ in 2019.
 
 The third metric warrants some further discussion. In the context of leapfrog development, Section 2.6 discusses the concept of landscape fragmentation - the idea that discontinuous development across space carves out disjointed slivers of wilderness. This fragmentation reduces biodiversity particularly for species that need room to roam. Below, environmentally `sensitive_regions` are created to represent large areas of unfragmented natural resources. We then consider the total area of these clumps for each county.
 
 ## 6.2. 2011 Land Cover Data
 
-To begin, the 2011 Land Cover data is read in and reclassified.
+To begin, the 2019 Land Cover data is read in and reclassified.
 
 ```{r, warning = FALSE, message = FALSE}
 # Read raster data
@@ -1221,7 +1139,7 @@ ggplot() +
   mapTheme + theme(legend.position = "none")
 ```
 
-Next, each raster is aggregated to the fishnet using the `aggregateRaster` function and 2011 land cover types are mapped.
+Next, each raster is aggregated to the fishnet using the `aggregateRaster` function and 2019 land cover types are mapped.
 
 ```{r, warning = FALSE, message = FALSE}
 lc_2019 <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_LC_2019.tif")
