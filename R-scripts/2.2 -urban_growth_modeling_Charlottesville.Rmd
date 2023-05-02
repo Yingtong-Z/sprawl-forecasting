@@ -310,6 +310,9 @@ It is reasonable to hypothesize that the propensity of new development is a func
 ```{r, warning = FALSE, message = FALSE}
 lc_2001 <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_LC_2001.tif")
 
+# Transform the raster to EPSG:2284
+lc_2001 <- projectRaster(input_raster, crs = CRS("+init=epsg:2284"))
+
 ggplot() +
   geom_raster(data=rast(lc_2001) %>% na.omit %>% filter(value > 0), 
               aes(x,y,fill=as.factor(value))) +
@@ -687,18 +690,20 @@ SlopeRaster <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forec
 
 # Check the CRS of the raster and the fishnet data
 raster_crs <- crs(SlopeRaster)
-fishnet_crs <- st_crs(dat)
+fishnet_crs <- st_crs(fishnet)
 
 # If CRS doesn't match, reproject the fishnet data to match the raster CRS
 if (raster_crs != fishnet_crs) {
-  dat <- st_transform(dat, raster_crs)
-}
+  fishnet <- st_transform(fishnet, raster_crs)}
 
 # Calculate the mean raster values within each fishnet cell
-mean_values <- exact_extract(SlopeRaster, dat, fun = 'mean')
+mean_values <- exact_extract(SlopeRaster, fishnet, fun = 'mean')
 
 # Add the mean values as a new column to the fishnet data
-dat$slope <- mean_values
+fishnet$slope <- mean_values
+
+# Transform the fishnet back EPSG:2284
+fishnet <- st_transform(fishnet, 2284)
 ```
 
 ## 2.7. The Spatial Lag of Development
@@ -894,25 +899,22 @@ Model1 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped,
 Model2 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment, 
               family="binomial"(link="logit"), data = datTrain)
               
-Model3 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment + total_population + distance_highways, 
+Model3 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment + total_population +
+                 distance_highways, 
               family="binomial"(link="logit"), data = datTrain)  
 
-#!!!!!!!!!!!!!!!!add slope variable?
-
 Model4 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment + total_population +
-                total_population2020 + distance_highways,
+                 distance_highways + slope, 
                 family="binomial"(link="logit"), data = datTrain)  
 
 Model5 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment + total_population +
-                total_population2020 + pop_Change_00_20 + distance_highways,
+                 distance_highways + slope + pop_Change_00_20 + total_population2020,
                 family="binomial"(link="logit"), data = datTrain)               
 
 Model6 <- glm(lc_change ~ wetlands + forest  + farm + otherUndeveloped + lagDevelopment + total_population +
-                total_population2020 + pop_Change_00_20 + distance_highways +
-                total_graduate_degree_holders + total_housing_units + total_vacant_households + total_white,
-                family="binomial"(link="logit"), data = datTrain) 
-
-
+                 distance_highways + slope + pop_Change_00_20 + total_population2020,
+                 + total_housing_units  + total_white,
+                family="binomial"(link="logit"), data = datTrain)
 ```
 
 Below codes create a data frame of psudeo R Squares for each model and plotting them for comparison. This approach loops through the models retrieving the goodness of fit for each. `Model6` is the final model employed for prediction.
