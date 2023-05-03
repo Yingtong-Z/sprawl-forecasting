@@ -1,7 +1,7 @@
 ---
-title: "CPLN 675 - Urban Growth Modeling, 2022"
-author: "Ken Steif, 2019. Eds. Michael Fichman & Jenna Epstein"
-date: "2/21/2022"
+title: "Charlottesville MSA Urban Growth Modeling"
+author: "Oliver Atwood, Yingtong Zhong"
+date: "05/02/2023"
 output:
   html_document:
     toc: true
@@ -275,24 +275,15 @@ ggplot() +
 The code below converts the raster to an `sf` point layer and then joins the points to the fishnet with `aggregate`. Finally, the fishnet variable `lc_change` is created that is `1` where new development has occurred and `0` where it has not. This is our dependent variable and encoded as a factor.
 
 ```{r, warning = FALSE, message = FALSE}
-# The code below converts the raster to an `sf` point layer and then joins the points to the fishnet with `aggregate`. 
-# This works well because the raster and the fishnet are of the same spatial resolution.
-
-# The raster is converted to points, which makes its joining to the vector fishnet a bit faster.
-# convert the raster to an `sf` point layer
 changePoints <-
   rasterToPoints(lc_change2) %>%
   as.data.frame() %>%
   st_as_sf(coords = c("x", "y"), crs = st_crs(CvilleMSA))
 
-# join the points to the fishnet with `aggregate`.
-# Finally, the fishnet variable `lc_change` is created that is `1` where new development has occurred and `0` where it has not.
-# This is our dependent variable and encoded as a factor.
 fishnet <- 
   aggregate(changePoints, CvilleMSA, sum) %>%
   mutate(lc_change = ifelse(is.na(lc_change),0,1),
          lc_change = as.factor(lc_change))
-
 # Plot
 # To speed up the mapping process, fishnet polygons are converted to centroid points using the `xyC` function defined earlier  
 ggplot() +
@@ -526,7 +517,7 @@ cvam_2000_census <- clean_2000_census_data() # 2000 census data
 cvam_2020_census <- clean_2020_census_data() # 2020 census data
 ```
 
-Additional Census Data Formatting for 2020
+Additional Census Data Formatting for 2020.
 ```{r, warning = FALSE, message = FALSE}
 cvam_2020_census <- cvam_2020_census %>% 
   mutate(total_population2020 = total_population) %>%
@@ -684,7 +675,7 @@ ggplot() +
 ```
 
 ## 2.6. Add Slope Variable
-```{r}
+```{r, warning = FALSE, message = FALSE}
 SlopeRaster <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/9f810ec8e1e9774c51d83194e22848e8240d26f7/data/Cville_Slope.tif")
 
 # Check the CRS of the raster and the fishnet data
@@ -759,7 +750,7 @@ ggplot() +
   mapTheme
 ```
 
-## 2.7. MSA Counties
+## 2.8. MSA Counties
 
 The `tigris` package allows Virginia county geometries to be downloaded. A spatial subset returns only the counties in the MSA. Note that the subset includes a negative 1000ft `st_buffer`. This is done because the spatial extent of `CvilleMSA` intersects county boundaries that are actually outside of our study area. Buffering `CvilleMSA` slightly limits the intersection range to only those counties in the study area.
 
@@ -1223,8 +1214,10 @@ dat2 %>%
    mapTheme
 
 ```
-Reformat 2019 Land Cover for Model, preserving 2001 Land Cover values as new columns
-```{r}
+
+Reformat 2019 Land Cover and other features for Model, preserving 2001 features as new columns.
+
+```{r, warning = FALSE, message = FALSE}
 dat2 <- dat2 %>%
 # 2001 land cover
     mutate(farm01 = farm) %>%
@@ -1248,7 +1241,7 @@ dat2 <- dat2 %>%
 
 ## 6.3. Sensitive Land Cover Lost
 
-Below an indicator `sensitive_lost` is created indicating grid cells that were either forest or wetlands in 2001 but were no longer so in 2011. The output layer, `sensitive_land_lost`, gives a sense for how development in the recent past has effected the natural environment.
+Below an indicator `sensitive_lost` is created indicating grid cells that were either forest or wetlands in 2001 but were no longer so in 2019. The output layer, `sensitive_land_lost`, gives a sense for how development in the recent past has effected the natural environment.
 
 ```{r, warning = FALSE, message = FALSE, fig.height = 6, fig.width= 6}
 dat2 <-
@@ -1267,7 +1260,7 @@ ggplot() +
 
 ## 6.4 Landscape Fragmentation
 
-In this section, the `wetlands11` and `forest11` rasters are converted to contiguous `sensitive_regions` using the `raster::clump` function. This is equivalent to Region Group in ArcGIS. The raster clumps are then converted to vector `sf` layers; dissolved into unique regions; Acres are calculated; and the layers are converted back to raster to be extracted back to the fishnet with `aggregateRaster`. It is worth going through this code block line by line. Note that only `sensitive_regions` with areas greater than 1 acre are included.
+In this section, the `wetlands11` and `forest11` rasters are converted to contiguous `sensitive_regions` using the `raster::clump` function. This is equivalent to Region Group in ArcGIS. The raster clumps are then converted to vector `sf` layers; dissolved into unique regions; Acres are calculated; and the layers are converted back to raster to be extracted back to the fishnet with `aggregateRaster`. Note that only `sensitive_regions` with areas greater than 1 acre are included.
 
 ```{r, warning = FALSE, message = FALSE, fig.height = 6, fig.width= 6}
 sensitiveRegions <- 
@@ -1329,9 +1322,7 @@ county_specific_metrics <-
 
 Now a small multiple plot can be created providing both supply and demand side analytics by county. The plot gives a sense for development demand (`Demand-Side`), suitable land for development (`Suitable`) and sensitive land (`Not Suitable`).
 
-In Fort Bend County, an area west of Houston, the data suggests both population and development demand will increase. At the same time, there is a high rate of developable farmland and a low supply of sensitive land. Fort Bend is well suitable to new development.
-
-Conversely, San Jacinto, the county north and east of Houston, contains some of the highest rates of sensitive land use in the region. There is a very large National Forest in this area. In most counties, there are some real trade-offs to be made between suitable/sensitive land and development pressure.
+The data suggests both population and development demand will increase for Charlottesville MSA. However, compared to Charlottesville county, Albemarle has a high rate of developable farmland and a low supply of sensitive land. Albemarleort is well suitable to new development than Charlottesville, where the latter has lower supply of developable lands.
 
 ```{r, warning = FALSE, message = FALSE}
 county_specific_metrics %>%
@@ -1357,11 +1348,12 @@ county_specific_metrics %>%
 
 # 7. Allocation
 
-Allocation is the final stage of the urban growth modeling process. Now that both demand and supply is understood, Planners can allocate development rights accordingly. Of course, this could take many forms of regulation including zoning, subdivision approval or outright conservation. In this section, demand and supply are visualized for two counties, Fort Bend and Montgomery. The data suggests that the former is more conducive to growth while the latter, less so.
+Allocation is the final stage of the urban growth modeling process. Now that both demand and supply is understood, We can allocate development rights accordingly. Of course, this could take many forms of regulation including zoning, subdivision approval or outright conservation. In this section, demand and supply are visualized for two counties, Charlottesville and Albemarle The data suggests that the latter is more conducive to growth while the former, less so.
 
-First, development demand is predicted for Fort Bend. Then a layer, `fortBend_landUse` is created, that includes indicators for both previously developed land and environmentally unsuitable land. This layer then is overlayed atop development demand and projected population change to give the full supply and demand-side picture in Fort Bend.
+First, development demand is predicted for Albemarle. Then a layer, `Albemarle_landUse` is created, that includes indicators for both previously developed land and environmentally unsuitable land. This layer then is overlayed atop development demand and projected population change to give the full supply and demand-side picture in Albemarle.
 
-There are some clear opportunities for development in Fort Bend. Significant infill opportunities exist along the northeast boundary where population change is projected to be greatest. There is also a good deal of environmentally suitable land in the center of the county around a highway interchange. This would be ideal space for large footprint, suburban shopping.
+There are some clear opportunities for development in Albemarle. Significant infill opportunities exist along the roads and highways where population change is projected to be greatest. There is also a good deal of environmentally suitable land along the highways. This would be ideal space for land developments.
+
 <div class="superbigimage">
 ```{r, warning = FALSE, message = FALSE, fig.height= 8, fig.width= 11}
 Albemarle <-
@@ -1409,6 +1401,10 @@ ggplot() +
 
 ```
 
+The plots above are created using a `ggplot` trick to show what appears to be overlayed polygons (fishnet grid cells). 
+
+For comparison purposes, this process is replicated for Charlottesville county below. There is way less available lands for growth.
+
 ```{r, warning = FALSE, message = FALSE, fig.height= 8, fig.width= 11}
 Charlottesville <-
   dat2 %>%   #calculate population change
@@ -1454,132 +1450,5 @@ ggplot() +
 ```
 
 </div>
-The plots above are created using a `ggplot` trick to show what appears to be overlayed polygons (fishnet grid cells). ggplot does not natively allow multiple aesthetics (`aes`) of the same style. In practice, this means it is not possible to have two `scale_fill_manual` parameters and thus, two legends for the same map. This limitation is cleverly avoided by plotting `fortBend_landUse` as colored points (as opposed to filled grid cells). In the `geom_point` parameter above, the points are set to `shape = 15`, which is a filled box. This box can then be sized to make it appear like a fishnet grid cell.
-
-For comparison purposes, this process is replicated for Montgomery County below. There is far more environmentally sensitive land here relative to Fort Bend. Any new development would have to be diffuse and likely adjacent to highways.
 
 We stop short in actually allocating land to development. While the model is well suited for understanding sprawl-style development, it is not useful for understanding how new demand might be absorbed by upzoning and densification of existing development. It would not be wise to allocate the entire projected population to undeveloped land. Instead, we’d prefer a more nuanced understanding of how local land use laws might play a role. At this stage in the analysis however, the Planner has all she needs to engage local stakeholders about future development decisions.
-
-![Montgomery County](https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/images/montgomery.png)
-
-
-<!-- # 8. Appendix -->
-
-<!-- _This is new material describing how you can determine land cover change from land cover rasters for two time periods_ -->
-
-<!-- ## 8.1. Calculating Land Cover Change -->
-
-<!-- For your assignment, you are going to need to get land cover data for two new time periods and figure out what areas developed in that interval (and then model it). In the workflow above, we used a the NLCD land cover change data set, but we could also have calculated our own version using the 2001 and 2011 data sets. You could do this in R, or ArcGIS for your assignment. Here is an abbreviated workflow for doing it in R using the data from this exercise: -->
-
-<!-- Reclassify 2001 and 2011 land cover databases to consist of 1 and 0 observations (e.g. 1 is the developed classes 13-24, 0 is everything else).  -->
-
-<!-- ```{r} -->
-<!-- reclassMatrix <-  -->
-<!--   matrix(c( -->
-<!--     0,12,0, -->
-<!--     12,24,1, -->
-<!--     24,Inf,0), -->
-<!--   ncol=3, byrow=T) -->
-<!-- ``` -->
-
-<!-- ```{r, warning = FALSE, message = FALSE} -->
-<!-- developed_2001 <-  -->
-<!--   reclassify(lc_2001,reclassMatrix) -->
-
-<!-- developed_2011 <-  -->
-<!--   reclassify(lc_2011,reclassMatrix) -->
-
-<!-- ``` -->
-
-<!-- Then do some map algebra to find the places where land cover changed. Let's see a quick histogram of the values - these should range from 0 (undeveloped in 2001, undeveloped in 2011), 1 (undeveloped in 2001, developed in 2011 (presuming nothing went from developed to undeveloped)), and 2 (developed in both periods). The 1's represent the change. -->
-
-<!-- ```{r, warning = FALSE, message = FALSE} -->
-
-<!-- development_change <- developed_2001+developed_2011 -->
-
-<!-- hist(development_change) -->
-<!-- ``` -->
-
-<!-- We can subsequently turn any of the 0's and 1's to NA -->
-
-<!-- ```{r, warning = FALSE, message = FALSE} -->
-<!-- development_change[development_change != 1] <- NA -->
-
-<!-- ggplot() + -->
-<!--   geom_sf(data=houstonMSA) + -->
-<!--   geom_raster(data=rast(development_change) %>% na.omit,  -->
-<!--               aes(x,y,fill=as.factor(value))) + -->
-<!--   scale_fill_viridis(discrete=TRUE, name ="Land Cover\nChange") +  -->
-<!--   labs(title="Development land use change") + -->
-<!--   mapTheme -->
-<!-- ``` -->
-
-<!-- ## 8.2. Downsampling Rasters -->
-
-<!-- Notice that we used 4000x4000 unit grid cells in this analysis to keep small grid cell sizes from crushing our laptops while we did this plotting and geo-processing. This is very simple to do in R - the below code takes our `development_change` raster and downsamples it by a factor of two using the `aggregate` function. You could load an original data set in at the beginning of your analysis and downsample it before you get started. -->
-
-<!-- ```{r, warning = FALSE} -->
-
-<!-- development_change -->
-
-<!-- aggregate(development_change, fact = 2) -->
-
-<!-- ``` -->
-
-<!-- ## 8.3. Cropping Rasters -->
-<!-- Say you have rasters that you would like to manipulate in R instead of in ArcGIS. If you have data covering the study area, you can use this as the extent to which you would like to crop the data, and then use `mask` to clip the data to the exact boundaries. -->
-
-<!-- First, read in the resampled raster of land cover around Atlanta, Georgia from 2001 and then plot it. -->
-
-<!-- ```{r message=FALSE, warning=FALSE} -->
-<!-- lc_atl_2001 <- raster("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/data/atl_lc01_resamp_new.tif") -->
-
-<!-- plot(lc_atl_2001) -->
-<!-- ``` -->
-
-
-<!-- We will also read in Atlanta counties for the extent of the bounding box, and then `crop` the raster to the counties. -->
-
-<!-- ```{r message=FALSE, warning=FALSE} -->
-<!-- atl_counties <- st_read("https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/data/Counties_Atlanta_Region.geojson") %>% st_transform("ESRI:102667") # ESRI 1983 state plane GA west -->
-
-<!-- lc_atl_2001_crop <- crop(lc_atl_2001, extent(atl_counties)) -->
-
-<!-- plot(lc_atl_2001_crop) -->
-<!-- ``` -->
-
-
-<!-- Then, `mask` the raster using the Atlanta are counties. This is similar to the "clipping" process for vector data. -->
-
-<!-- ```{r message=FALSE, warning=FALSE} -->
-<!-- lc_atl_2001_mask <- mask(lc_atl_2001_crop, atl_counties) -->
-<!-- plot(lc_atl_2001_mask) -->
-<!-- ``` -->
-
-
-<!-- ## 8.4 Updated Census Data Calls -->
-
-<!-- In section 2.4, census data was pulled using the `get_decennial`; however, if you are using a different timeframe, you you will use data from the American Community Survey (ACS). You will replace `get_decennial` with `get_acs` in your project's workflow. The code chunk below shows how to use `get_acs` to obtain population data from the counties in the Houston MSA in 2019. Note that `get_acs` returns both an estimate (denoted with an "E") and a margin of error (denoted with an "M"). We use the `select` command in `dplyr` to only retain estimate version of the variable. -->
-
-
-<!-- ```{r, warning = FALSE, message = FALSE, results = "hide"} -->
-<!-- # Specify which variable(s) you would like to grab. Here, only one (Total Population) is listed, but you could add more to the call. -->
-<!-- acs_vars <- c("B02001_001E") -->
-
-<!-- # Using "tract" as the geography and 2019 as the year, download data data for the Houston MSA counties listed. -->
-<!-- houstonPop19 <- get_acs(geography = "tract",  -->
-<!--                         variables = acs_vars,  -->
-<!--                         year = 2019, -->
-<!--                         state = 48,  -->
-<!--                         geometry = TRUE,  -->
-<!--                         output = "wide", -->
-<!--                         county=c("Harris COunty","San Jacinto","Montgomery","Liberty","Waller", -->
-<!--                          "Austin","Chambers","Fort Bend","Brazoria","Galveston")) %>% -->
-<!--                 rename(pop2019 = B02001_001E) %>% -->
-<!--                 dplyr::select(-starts_with("B")) -->
-
-<!-- # Make sure to transform to the crs of the fishnet! -->
-<!-- houstonPop19 <- houstonPop19 %>% -->
-<!--   st_transform(st_crs(CvilleMSA)) -->
-
-<!-- ``` -->
