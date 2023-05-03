@@ -1433,7 +1433,7 @@ ggplot() +
   scale_fill_manual(values = palette5, name="Development_Demand",
                     labels=substr(quintileBreaks(Charlottesville,"Development_Demand"),1,5)) +
   scale_colour_manual(values = c("black","red")) +
-  labs(title = "Development Potential, 2040: Charlottesville") + mapTheme +
+  labs(title = "Development Potential, \n2040: Charlottesville") + mapTheme +
   guides(fill = guide_legend(order = 1), colour = guide_legend(order = 2)),
 
 ggplot() +
@@ -1444,11 +1444,10 @@ ggplot() +
   scale_fill_manual(values = palette5, name="Population_Change",
                     labels=substr(quintileBreaks(Albemarle,"pop_Change"),1,5)) +
   scale_colour_manual(values = c("black","red")) +
-  labs(title = "Projected Population, 2040: Charlottesville") + mapTheme +
+  labs(title = "Projected Population, \n2040: Charlottesville") + mapTheme +
   guides(fill = guide_legend(order = 1), colour = guide_legend(order = 2)), ncol=2)
 
 ```
 
-</div>
 
 We stop short in actually allocating land to development. While the model is well suited for understanding sprawl-style development, it is not useful for understanding how new demand might be absorbed by upzoning and densification of existing development. It would not be wise to allocate the entire projected population to undeveloped land. Instead, we’d prefer a more nuanced understanding of how local land use laws might play a role. At this stage in the analysis however, the Planner has all she needs to engage local stakeholders about future development decisions.
