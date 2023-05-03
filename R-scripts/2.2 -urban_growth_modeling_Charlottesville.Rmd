@@ -417,7 +417,7 @@ Below we get the demographic data including `total_population`, `total_housing_u
 census_api_key("20ad38c6d9e241be49ae3a1a6f74125448db674e", install = TRUE, overwrite = TRUE)
 ```
 
-```{r, warning = FALSE, message = FALSE}
+```{r, warning = FALSE, message = FALSE, results = "hide"}
 
 #function to get and clean 2000 census data (decennial)
 clean_2000_census_data <- function() {
@@ -618,7 +618,7 @@ Accessibility is a key determinant of development potential particularly in a sp
 
 First highway vectors are downloaded from the Virginia State open data website in `geojson` format; projected and subset to the subset using `st_intersection`. Below, new development is mapped with the highway overlay.
 
-```{r read and plot highway, warning = FALSE, message= FALSE}
+```{r read and plot highway, warning = FALSE, message= FALSE,results = "hide"}
 CvilleHighways <-
   st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways.geojson") %>%
   # st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways2.geojson") %>%
@@ -675,7 +675,7 @@ ggplot() +
 ```
 
 ## 2.6. Add Slope Variable
-```{r, warning = FALSE, message = FALSE}
+```{r, warning = FALSE, message = FALSE,results = "hide"}
 SlopeRaster <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/9f810ec8e1e9774c51d83194e22848e8240d26f7/data/Cville_Slope.tif")
 
 # Check the CRS of the raster and the fishnet data
@@ -1379,7 +1379,7 @@ ggplot() +
   geom_sf(data=Albemarle, aes(fill=factor(ntile(Development_Demand,5))), colour=NA) +
   geom_point(data=Albemarle_landUse, aes(x=xyC(Albemarle_landUse)[,1],
                                         y=xyC(Albemarle_landUse)[,2], colour=Land_Use),
-                                        shape = 16, size = 0.5) +
+                                        shape = 16, size = 0.3) +
   geom_sf(data=st_intersection(CvilleHighways,filter(studyAreaCounties, NAME=="Albemarle")), size=2) +
   scale_fill_manual(values = palette5, name="Development_Demand",
                     labels=substr(quintileBreaks(Albemarle,"Development_Demand"),1,5)) +
@@ -1391,7 +1391,7 @@ ggplot() +
   geom_sf(data=Albemarle, aes(fill=factor(ntile(pop_Change,5))), colour=NA) +
   geom_point(data=Albemarle_landUse, aes(x=xyC(Albemarle_landUse)[,1],
                                         y=xyC(Albemarle_landUse)[,2], colour=Land_Use),
-                                        shape = 16, size = 0.5) +
+                                        shape = 16, size = 0.3) +
   geom_sf(data=st_intersection(CvilleHighways,filter(studyAreaCounties, NAME=="Albemarle")), size=2) +
   scale_fill_manual(values = palette5, name="Population_Change",
                     labels=substr(quintileBreaks(Albemarle,"pop_Change"),1,5)) +
@@ -1429,7 +1429,7 @@ ggplot() +
   geom_sf(data=Charlottesville, aes(fill=factor(ntile(Development_Demand,5))), colour=NA) +
   geom_point(data=Charlottesville_landUse, aes(x=xyC(Charlottesville_landUse)[,1],
                                         y=xyC(Charlottesville_landUse)[,2], colour=Land_Use),
-                                        shape = 16, size = 3) +
+                                        shape = 16, size = 1) +
   scale_fill_manual(values = palette5, name="Development_Demand",
                     labels=substr(quintileBreaks(Charlottesville,"Development_Demand"),1,5)) +
   scale_colour_manual(values = c("black","red")) +
@@ -1440,7 +1440,7 @@ ggplot() +
   geom_sf(data=Charlottesville, aes(fill=factor(ntile(pop_Change,5))), colour=NA) +
   geom_point(data=Charlottesville_landUse, aes(x=xyC(Charlottesville_landUse)[,1],
                                         y=xyC(Charlottesville_landUse)[,2], colour=Land_Use),
-                                        shape = 16, size = 3) +
+                                        shape = 16, size = 1) +
   scale_fill_manual(values = palette5, name="Population_Change",
                     labels=substr(quintileBreaks(Albemarle,"pop_Change"),1,5)) +
   scale_colour_manual(values = c("black","red")) +
