@@ -620,8 +620,8 @@ First highway vectors are downloaded from the Virginia State open data website i
 
 ```{r read and plot highway, warning = FALSE, message= FALSE,results = "hide"}
 CvilleHighways <-
-  st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways.geojson") %>%
-  # st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways2.geojson") %>%
+  #st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways.geojson") %>%
+  st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways2.geojson") %>%
   st_transform(st_crs(CvilleMSA)) %>%
   st_intersection(CvilleMSA)
 
@@ -1384,7 +1384,7 @@ ggplot() +
   scale_fill_manual(values = palette5, name="Development_Demand",
                     labels=substr(quintileBreaks(Albemarle,"Development_Demand"),1,5)) +
   scale_colour_manual(values = c("black","red")) +
-  labs(title = "Development Potential, 2040: Albemarle") + mapTheme +
+  labs(title = "Development Potential, \n2040: Albemarle") + mapTheme +
   guides(fill = guide_legend(order = 1), colour = guide_legend(order = 2)),
 
 ggplot() +
@@ -1396,7 +1396,7 @@ ggplot() +
   scale_fill_manual(values = palette5, name="Population_Change",
                     labels=substr(quintileBreaks(Albemarle,"pop_Change"),1,5)) +
   scale_colour_manual(values = c("black","red")) +
-  labs(title = "Projected Population, 2040: Albemarle") + mapTheme +
+  labs(title = "Projected Population, \n2040: Albemarle") + mapTheme +
   guides(fill = guide_legend(order = 1), colour = guide_legend(order = 2)), ncol=2)
 
 ```
