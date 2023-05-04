@@ -621,7 +621,7 @@ First highway vectors are downloaded from the Virginia State open data website i
 ```{r read and plot highway, warning = FALSE, message= FALSE,results = "hide"}
 CvilleHighways <-
   #st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways.geojson") %>%
-  st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways2.geojson") %>%
+  st_read("https://raw.githubusercontent.co/Yingtong-Z/sprawl-forecasting/ae7eabdca8dafccb56fe85254bdd57e54f6896a2/data/Cville_Highways2.geojson") %>%
   st_transform(st_crs(CvilleMSA)) %>%
   st_intersection(CvilleMSA)
 
