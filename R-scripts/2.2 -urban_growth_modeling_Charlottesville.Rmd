@@ -135,9 +135,9 @@ rast <- function(inRaster) {
     value = getValues(inRaster)) }
 ```
 
-<br>
+
 # 2. Data Wrangling & Feature Engineering
-<br>
+
 In this section a considerable amount of vector and raster data is wrangled together into a regression-ready dataset. The following datasets are used:
 
 2.1 - 2.2: Land cover data [downloaded](https://www.mrlc.gov/data/nlcd-land-cover-change-index-conus) from the Multi-Resolution Land Characteristics Consortium’s National Land Cover Database (NLCD) includes annual land cover and land cover change raster data for the Charlottesville and Albemarle countries. These data are sampled to a 4,000 by 4,000 ft^2 fishnet.
@@ -789,9 +789,9 @@ ggplot() +
   labs(title = "Study Area Counties") +
   mapTheme
 ```
-<br>
+
 # 3. Exploratory Analysis
-<br>
+
 In this section we explore the extent to which each feature is associated with development change. If the goal was to predict a continuous variable, scatterplots and correlation coefficients make this process straightforward and relatively easy to explain to a non-technical decision maker.
 
 In this case however, the dependent variable is a binary outcome - either a grid cell was developed between 2001 and 2019 or it wasn’t. In this case, the relevant question is whether for a given feature, there is a statistically significant difference between areas that changed and areas that did not. These differences are explored in a set of plots below. For models with lots of features, these plots could be compliment by a series of difference in means statistical tests.
@@ -847,9 +847,9 @@ dat %>%
   kable() %>% kable_styling(full_width = F)
 ```
 
-<br>
+
 # 4. Predicting for 2010
-<br>
+
 In this section, six separate logistic regression models are estimated to predict development change between 2001 and 2019 - with each subsequent model more sophisticated then the last. To do so, the data is split into 50% training/test sets. Models are estimated on the training set.
 
 For brevity, a less sophisticated approach to describing the accuracy and generalizability of predictions for each model is taken here, judging each by the McFadden or “Psuedo” R Squared statistic on the test set. The model with the greatest goodness of fit is then used for the purposes of prediction.
@@ -1012,9 +1012,9 @@ ggplot(data=ConfusionMatrix.metrics) +
 ```
 </div>
 
-<br>
+
 # 5. Predicting Land Cover Demand for 2040
-<br>
+
 ## 5.1. Update Population Change and Lag Development values
 
 At this point, a simple but useful model has been trained to predict urban development between 2001 and 2019 as a function of baseline features from 2001 including land cover, built environment and population. Next, we are going to update our features to reflect a 2019 baseline. Having done so, predictions from our new model would then be for 2040.
@@ -1094,9 +1094,9 @@ dat_infill %>%
   mapTheme
 
 ```
-<br>
+
 # 6. Comparing Predicted Development Demand & Environmental Sensitivity
-<br>
+
 We now have a really strong indicator of development demand for 2040 to help guide local land use planning. Demand however, is only one side of the equation. It must balanced with the supply of environmentally sensitive land. Understanding the interplay between demand and supply is the first stage of the ‘Allocation’ phase, where Planners ultimately decide which land should be developed and which should not.
 
 For this analysis farmland and undeveloped land are be deemed `Suitable`, while environmentally sensitive areas like wetlands and forest are be deemed `Not Suitable`. Below, 2019 land cover data is read in and several measures of environmental sensitivity are created by county. These include:
@@ -1309,9 +1309,9 @@ county_specific_metrics %>%
     labs(title= "County Specific Allocation Metrics", subtitle= "As rates", x="Indicator", y="Rate") +
     plotTheme + theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position="bottom")
 ```
-<br>
+
 # 7. Allocation
-<br>
+
 Allocation is the final stage of the urban growth modeling process. Now that both demand and supply is understood, We can allocate development rights accordingly. Of course, this could take many forms of regulation including zoning, subdivision approval or outright conservation. In this section, demand and supply are visualized for two counties, Charlottesville and Albemarle. The data suggests that the latter is more conducive to growth while the former is less so.
 
 First, development demand is predicted for Albemarle. Then a layer, `Albemarle_landUse` is created, that includes indicators for both previously developed land and environmentally unsuitable land. This layer then is overlayed atop development demand and projected population change to give the full supply and demand-side picture in Albemarle.
@@ -1342,7 +1342,7 @@ ggplot() +
   geom_sf(data=Albemarle, aes(fill=factor(ntile(Development_Demand,5))), colour=NA) +
   geom_point(data=Albemarle_landUse, aes(x=xyC(Albemarle_landUse)[,1],
                                         y=xyC(Albemarle_landUse)[,2], colour=Land_Use),
-                                        shape = 16, size = 0.3) +
+                                        shape = 16, size = 0.25) +
   geom_sf(data=st_intersection(CvilleHighways,filter(studyAreaCounties, NAME=="Albemarle")), size=2) +
   scale_fill_manual(values = palette5, name="Development_Demand",
                     labels=substr(quintileBreaks(Albemarle,"Development_Demand"),1,5)) +
@@ -1354,7 +1354,7 @@ ggplot() +
   geom_sf(data=Albemarle, aes(fill=factor(ntile(pop_Change,5))), colour=NA) +
   geom_point(data=Albemarle_landUse, aes(x=xyC(Albemarle_landUse)[,1],
                                         y=xyC(Albemarle_landUse)[,2], colour=Land_Use),
-                                        shape = 16, size = 0.3) +
+                                        shape = 16, size = 0.25) +
   geom_sf(data=st_intersection(CvilleHighways,filter(studyAreaCounties, NAME=="Albemarle")), size=2) +
   scale_fill_manual(values = palette5, name="Population_Change",
                     labels=substr(quintileBreaks(Albemarle,"pop_Change"),1,5)) +
@@ -1392,7 +1392,7 @@ ggplot() +
   geom_sf(data=Charlottesville, aes(fill=factor(ntile(Development_Demand,5))), colour=NA) +
   geom_point(data=Charlottesville_landUse, aes(x=xyC(Charlottesville_landUse)[,1],
                                         y=xyC(Charlottesville_landUse)[,2], colour=Land_Use),
-                                        shape = 16, size = 1.5) +
+                                        shape = 16, size = 1) +
   scale_fill_manual(values = palette5, name="Development_Demand",
                     labels=substr(quintileBreaks(Charlottesville,"Development_Demand"),1,5)) +
   scale_colour_manual(values = c("black","red")) +
@@ -1403,7 +1403,7 @@ ggplot() +
   geom_sf(data=Charlottesville, aes(fill=factor(ntile(pop_Change,5))), colour=NA) +
   geom_point(data=Charlottesville_landUse, aes(x=xyC(Charlottesville_landUse)[,1],
                                         y=xyC(Charlottesville_landUse)[,2], colour=Land_Use),
-                                        shape = 16, size = 1.5) +
+                                        shape = 16, size = 1) +
   scale_fill_manual(values = palette5, name="Population_Change",
                     labels=substr(quintileBreaks(Albemarle,"pop_Change"),1,5)) +
   scale_colour_manual(values = c("black","red")) +
@@ -1411,14 +1411,17 @@ ggplot() +
   guides(fill = guide_legend(order = 1), colour = guide_legend(order = 2)), ncol=2)
 
 ```
-<br>
+
 # 8. Conclusion
-<br>
+
 We stop short of actually allocating land to development. While our model is well-suited for understanding sprawl-style development, it is not useful for understanding how new demand might be absorbed by upzoning and densification of existing development. It would not be wise to allocate the entire projected population to undeveloped land. Instead, we’d prefer a more nuanced understanding of how local land use laws might play a role. At this stage in the analysis however, the Planner has all they need to engage local stakeholders about future development decisions.
 
-<br>
 Next, we ran the same script with a new highways dataset upgrading an existing road connecting Charlottesville and Crozet to a highway to see how this new infrastructure might impact urban growth projections. Here are those results for Albemarle:
 
-And here are the results for Charlottesville:
+![Albemarle County](https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/images/montgomery.png)
 
-Html for this script is linked here:
+And here are the results for Charlottesville:
+![Charlottesville County](https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/images/montgomery.png)
+
+
+Html for this script is linked here: 
