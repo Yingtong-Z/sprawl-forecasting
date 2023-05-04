@@ -1384,7 +1384,7 @@ ggplot() +
   scale_fill_manual(values = palette5, name="Development_Demand",
                     labels=substr(quintileBreaks(Albemarle,"Development_Demand"),1,5)) +
   scale_colour_manual(values = c("black","red")) +
-  labs(title = "Development Potential, 2040: Albemarle") + mapTheme +
+  labs(title = "Development Potential, \n2040: Albemarle") + mapTheme +
   guides(fill = guide_legend(order = 1), colour = guide_legend(order = 2)),
 
 ggplot() +
@@ -1396,7 +1396,7 @@ ggplot() +
   scale_fill_manual(values = palette5, name="Population_Change",
                     labels=substr(quintileBreaks(Albemarle,"pop_Change"),1,5)) +
   scale_colour_manual(values = c("black","red")) +
-  labs(title = "Projected Population, 2040: Albemarle") + mapTheme +
+  labs(title = "Projected Population, \n2040: Albemarle") + mapTheme +
   guides(fill = guide_legend(order = 1), colour = guide_legend(order = 2)), ncol=2)
 
 ```
