@@ -1,6 +1,6 @@
 ---
 title: "Charlottesville MSA Urban Growth Modeling"
-author: "Oliver Atwood, Yingtong Zhong"
+author: "Oliver Atwood, Yingtong Zhong, adapted from Ken Steif, 2019. Eds. Michael Fichman & Jenna Epstein"
 date: "05/02/2023"
 output:
   html_document:
@@ -135,29 +135,29 @@ rast <- function(inRaster) {
     value = getValues(inRaster)) }
 ```
 
-
+<br>
 # 2. Data Wrangling & Feature Engineering
-
+<br>
 In this section a considerable amount of vector and raster data is wrangled together into a regression-ready dataset. The following datasets are used:
 
-2.2 - 2.3: Land cover data [downloaded](https://www.mrlc.gov/data/nlcd-land-cover-change-index-conus) from the Multi-Resolution Land Characteristics Consortium’s National Land Cover Database (NLCD) includes annual land cover and land cover change raster data for the Charlottesville and Albemarle countries. These data are sampled to a 4,000 by 4,000 ft^2 fishnet.
+2.1 - 2.2: Land cover data [downloaded](https://www.mrlc.gov/data/nlcd-land-cover-change-index-conus) from the Multi-Resolution Land Characteristics Consortium’s National Land Cover Database (NLCD) includes annual land cover and land cover change raster data for the Charlottesville and Albemarle countries. These data are sampled to a 4,000 by 4,000 ft^2 fishnet.
 
-2.4: Population data is downloaded from the U.S. Census and joined to the fishnet by distributing Block population totals proportionally to each grid cell.
+2.3: Population data is downloaded from the U.S. Census and joined to the fishnet by distributing Block population totals proportionally to each grid cell.
 
-2.5: Highway vectors are downloaded from Open Street Map data via GeoFabrik.de, cleaned in ArcGIS Pro, and exported for proximity to highway analysis in R.
+2.4: Highway vectors are downloaded from Open Street Map data via GeoFabrik.de, cleaned in ArcGIS Pro, and exported for proximity to highway analysis in R.
 
-2.6: Slope values are derived from 12.5m resolution DEM in ArcGIS Pro and imported to R for inclusion in models.
+2.5: Slope values are derived from 12.5m resolution DEM in ArcGIS Pro and imported to R for inclusion in models.
 
-2.7: Land cover change data from NLCD is used to engineer spatial lag features.
+2.6: Land cover change data from NLCD is used to engineer spatial lag features.
 
-2.8: County polygons are downloaded using the `tigris` package.
+2.7: County polygons are downloaded using the `tigris` package.
 
-2.9: Features are wrangled into a final dataset.
+2.8: Features are wrangled into a final dataset.
 
 Data from each of these datasets is integrated into the vector fishnet to provide a comprehensive snapshot of the development process and context in and around Charlottesville between 2001 and 2019.
 <br>
 
-## 2.2. Land Cover Change Data
+## 2.1. Land Cover Change Data
 
 We aim to forecast the dependent variable of land cover change between 2001 and 2019. In this section, we load the land cover raster data, reclassify it, and integrate it with a vector fishnet. This allows us to parameterize spatial relationships in a regression context.
 
@@ -287,8 +287,7 @@ ggplot() +
   mapTheme
 ```
 
-
-## 2.3. Land Cover in 2001
+## 2.2. Land Cover in 2001
 
 It is reasonable to hypothesize that the propensity of new development is a function of existing land cover categories. In this section we identify these other land cover categories from 2001 and integrate each with the fishnet.
 
@@ -401,7 +400,7 @@ aggregatedRasters %>%
    mapTheme
 ```
 
-## 2.4. Census Data
+## 2.3. Census Data
 
 Population and population change are crucial demand-side factors for predicting `Development_Demand`. We obtain 2000 and 2020 census data through the `tidycensus` package to represent the demographic features for 2001 and 2019. These data are downloaded at a block group geography and thus an approach is needed to reconcile tracts and fishnet geometries. This is accomplished using a technique called areal weighted interpolation.
 
@@ -606,7 +605,7 @@ ggplot()+
 ```
 
 
-## 2.5. Highway Distance
+## 2.4. Highway Distance
 
 Accessibility is a key determinant of development potential particularly in a sprawling city like Charlottesville. For the purposes of this workflow, accessibility features are engineered by measuring distance from each grid cell to its nearest highway.
 
@@ -615,7 +614,6 @@ First highway vectors are imported in `geojson` format; projected and subset to 
 ```{r read and plot highway, warning = FALSE, message= FALSE,results = "hide"}
 CvilleHighways <-
   st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways.geojson") %>%
-  # st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways2.geojson") %>%
   st_transform(st_crs(CvilleMSA)) %>%
   st_intersection(CvilleMSA)
 
@@ -668,7 +666,7 @@ ggplot() +
   mapTheme
 ```
 
-## 2.6. Add Slope Variable
+## 2.5. Add Slope Variable
 
 A raster dataset of slope is imported and its data is integrated into the fishnet using 'exactextractr'.
 ```{r, warning = FALSE, message = FALSE,results = "hide"}
@@ -692,7 +690,7 @@ fishnet$slope <- mean_values
 fishnet <- st_transform(fishnet, 2284)
 ```
 
-## 2.7. The Spatial Lag of Development
+## 2.6. The Spatial Lag of Development
 
 Our model hypothesizes that development demand partly depends on existing development patterns. Accessibility plays a significant role in traditional 'bid-rent' economic models of development. However, this model assumes shared preferences for central city access, which may not hold true in sprawling regions like Charlottesville MSA, where suburban locations are desirable.
 
@@ -746,7 +744,7 @@ ggplot() +
   mapTheme
 ```
 
-## 2.8. MSA Counties
+## 2.7. MSA Counties
 
 The `tigris` package allows Virginia county geometries to be downloaded. A spatial subset returns only the counties in the MSA.
 
@@ -761,7 +759,7 @@ studyAreaCounties <-
 ```
 
 
-## 2.9. Create the Final Dataset
+## 2.8. Create the Final Dataset
 
 The last step is to bring together all the disparate feature layers into a final dataset that can be used for analysis. The various fishnet layers are `cbind` together, needed features are extracted and the final fishnet, `dat` is then joined with `studyAreaCounties` to assign each grid cell to a county. `developed19` is created to designate those areas that have already been developed through 2019. Finally, any grid cell that has a `water` land cover designation is removed.
 
@@ -791,9 +789,9 @@ ggplot() +
   labs(title = "Study Area Counties") +
   mapTheme
 ```
-
+<br>
 # 3. Exploratory Analysis
-
+<br>
 In this section we explore the extent to which each feature is associated with development change. If the goal was to predict a continuous variable, scatterplots and correlation coefficients make this process straightforward and relatively easy to explain to a non-technical decision maker.
 
 In this case however, the dependent variable is a binary outcome - either a grid cell was developed between 2001 and 2019 or it wasn’t. In this case, the relevant question is whether for a given feature, there is a statistically significant difference between areas that changed and areas that did not. These differences are explored in a set of plots below. For models with lots of features, these plots could be compliment by a series of difference in means statistical tests.
@@ -849,14 +847,14 @@ dat %>%
   kable() %>% kable_styling(full_width = F)
 ```
 
-
+<br>
 # 4. Predicting for 2010
-
+<br>
 In this section, six separate logistic regression models are estimated to predict development change between 2001 and 2019 - with each subsequent model more sophisticated then the last. To do so, the data is split into 50% training/test sets. Models are estimated on the training set.
 
 For brevity, a less sophisticated approach to describing the accuracy and generalizability of predictions for each model is taken here, judging each by the McFadden or “Psuedo” R Squared statistic on the test set. The model with the greatest goodness of fit is then used for the purposes of prediction.
 
-## 4.2. Modeling
+## 4.1. Modeling
 
 First, `dat` is split into training and test sets. Note how imbalanced the panel is with `table(datTrain$lc_change1)`.
 
@@ -930,7 +928,7 @@ ggplot(testSetProbs, aes(probs)) +
   plotTheme
 ```
 
-## 4.3. Accuracy
+## 4.2. Accuracy
 
 Now to pick a predicted probability threshold to classify an area as having new development. *Sensitivity* or the True Positive rate is the proportion of actual positives (1’s) that were predicted to be positive. For example, the Sensitivity in our model is the rate of developed areas actually predicted as such. *Specificity* or True Negative Rate is the proportion of actual negatives (0’s) that were predicted to be negatives. For example, the Specificity in our model is the rate of No Change areas that were correctly predicted as No change.
 
@@ -1014,7 +1012,7 @@ ggplot(data=ConfusionMatrix.metrics) +
 ```
 </div>
 
-
+<br>
 # 5. Predicting Land Cover Demand for 2040
 <br>
 ## 5.1. Update Population Change and Lag Development values
@@ -1096,9 +1094,9 @@ dat_infill %>%
   mapTheme
 
 ```
-
+<br>
 # 6. Comparing Predicted Development Demand & Environmental Sensitivity
-
+<br>
 We now have a really strong indicator of development demand for 2040 to help guide local land use planning. Demand however, is only one side of the equation. It must balanced with the supply of environmentally sensitive land. Understanding the interplay between demand and supply is the first stage of the ‘Allocation’ phase, where Planners ultimately decide which land should be developed and which should not.
 
 For this analysis farmland and undeveloped land are be deemed `Suitable`, while environmentally sensitive areas like wetlands and forest are be deemed `Not Suitable`. Below, 2019 land cover data is read in and several measures of environmental sensitivity are created by county. These include:
@@ -1115,8 +1113,7 @@ To begin, the 2019 Land Cover data is read in and reclassified.
 
 ```{r, warning = FALSE, message = FALSE}
 # Read raster data
-lc_2019 <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_LC_2019.tif")
-
+lc_2019 <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/cc191e7ec81e863672040f74745fbf9b8015b693/data/Cville_LC_2019.tif")
 
 ggplot() +
   geom_raster(data = rbind(rast(lc_2001) %>% mutate(label = "2001"),
@@ -1133,8 +1130,6 @@ ggplot() +
 Next, each raster is aggregated to the fishnet using the `aggregateRaster` function and 2019 land cover types are mapped.
 
 ```{r, warning = FALSE, message = FALSE}
-lc_2019 <- raster("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_LC_2019.tif")
-
 developed19 <- lc_2019 == 21 | lc_2019 == 22 | lc_2019 == 23 | lc_2019 == 24
 forest19 <- lc_2019 == 41 | lc_2019 == 42 | lc_2019 == 43
 farm19 <- lc_2019 == 81 | lc_2019 == 82
@@ -1208,7 +1203,7 @@ dat2 <- dat2 %>%
     mutate(total_white = total_white2020)
 ```
 
-## 6.3. Sensitive Land Cover Lost
+## 6.2. Sensitive Land Cover Lost
 
 Below an indicator `sensitive_lost` is created indicating grid cells that were either forest or wetlands in 2001 but were no longer so in 2019. The output layer, `sensitive_land_lost`, gives a sense for how development in the recent past has effected the natural environment.
 
@@ -1227,7 +1222,7 @@ ggplot() +
   mapTheme
 ```
 
-## 6.4 Landscape Fragmentation
+## 6.3 Landscape Fragmentation
 
 In this section, the `wetlands19` and `forest19` rasters are converted to contiguous `sensitive_regions` using the `raster::clump` function. This is equivalent to Region Group in ArcGIS. The raster clumps are then converted to vector `sf` layers; dissolved into unique regions; Acres are calculated; and the layers are converted back to raster to be extracted back to the fishnet with `aggregateRaster`. Note that only `sensitive_regions` with areas greater than 1 acre are included.
 
@@ -1262,7 +1257,7 @@ ggplot() +
   mapTheme
 ```
 
-## 6.5. Summarize by County
+## 6.4. Summarize by County
 
 The below `dplyr` statement takes as its input, `dat2`, which was created in Sections 6.2 - 6.4 and wrangles together a table of county-level, supply and demand metrics which can be used to analyze suitability by county.
 ```{r, warning = FALSE, message = FALSE}
@@ -1314,9 +1309,9 @@ county_specific_metrics %>%
     labs(title= "County Specific Allocation Metrics", subtitle= "As rates", x="Indicator", y="Rate") +
     plotTheme + theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position="bottom")
 ```
-
+<br>
 # 7. Allocation
-
+<br>
 Allocation is the final stage of the urban growth modeling process. Now that both demand and supply is understood, We can allocate development rights accordingly. Of course, this could take many forms of regulation including zoning, subdivision approval or outright conservation. In this section, demand and supply are visualized for two counties, Charlottesville and Albemarle. The data suggests that the latter is more conducive to growth while the former is less so.
 
 First, development demand is predicted for Albemarle. Then a layer, `Albemarle_landUse` is created, that includes indicators for both previously developed land and environmentally unsuitable land. This layer then is overlayed atop development demand and projected population change to give the full supply and demand-side picture in Albemarle.
@@ -1416,5 +1411,14 @@ ggplot() +
   guides(fill = guide_legend(order = 1), colour = guide_legend(order = 2)), ncol=2)
 
 ```
-
+<br>
+# 8. Conclusion
+<br>
 We stop short of actually allocating land to development. While our model is well-suited for understanding sprawl-style development, it is not useful for understanding how new demand might be absorbed by upzoning and densification of existing development. It would not be wise to allocate the entire projected population to undeveloped land. Instead, we’d prefer a more nuanced understanding of how local land use laws might play a role. At this stage in the analysis however, the Planner has all they need to engage local stakeholders about future development decisions.
+
+<br>
+Next, we ran the same script with a new highways dataset upgrading an existing road connecting Charlottesville and Crozet to a highway to see how this new infrastructure might impact urban growth projections. Here are those results for Albemarle:
+
+And here are the results for Charlottesville:
+
+Html for this script is linked here:

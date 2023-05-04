@@ -613,8 +613,8 @@ First highway vectors are imported in `geojson` format; projected and subset to 
 
 ```{r read and plot highway, warning = FALSE, message= FALSE,results = "hide"}
 CvilleHighways <-
-st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways.geojson") %>%
-# st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/992db0a2e854c764df2bbafcaac6d424975d4bdc/data/Cville_Highways2.geojson") %>%
+  # st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/b528d725eaea5dd778c41fa644b5e6f71d6291b2/data/Cville_Highways.geojson") %>%
+st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/992db0a2e854c764df2bbafcaac6d424975d4bdc/data/Cville_Highways2.geojson") %>%
   st_transform(st_crs(CvilleMSA)) %>%
   st_intersection(CvilleMSA)
 
@@ -665,33 +665,6 @@ ggplot() +
   labs(title = "Distance to Highways",
        subtitle = "As fishnet centroids; Highways visualized in red") +
   mapTheme
-```
-
-## 2.4b New Highway
-```{r read and plot highway 2, warning = FALSE, message= FALSE,results = "hide"}
-CvilleHighways2 <-
-st_read("https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/992db0a2e854c764df2bbafcaac6d424975d4bdc/data/Cville_Highways2.geojson") %>%
-  st_transform(st_crs(CvilleMSA)) %>%
-  st_intersection(CvilleMSA)
-
-emptyRaster <- lc_change
-emptyRaster[] <- NA
-
-highway_raster2 <- 
-  as(CvilleHighways2,'Spatial') %>%
-  rasterize(.,emptyRaster)
-
-highway_raster_distance2 <- distance(highway_raster2)
-names(highway_raster_distance2) <- "distance_highways2"
-
-highwayPoints2 <-
-  rasterToPoints(highway_raster_distance2) %>%
-  as.data.frame() %>%
-  st_as_sf(coords = c("x", "y"), crs = st_crs(CvilleMSA))
-
-highwayPoints_fishnet2 <- 
-  aggregate(highwayPoints2, CvilleMSA, mean) %>%
-  mutate(distance_highways2 = ifelse(is.na(distance_highways2),0,distance_highways2))
 ```
 
 ## 2.5. Add Slope Variable
@@ -794,16 +767,16 @@ The last step is to bring together all the disparate feature layers into a final
 ```{r, warning = FALSE, message = FALSE}
 dat <- 
   cbind(
-    fishnet, highwayPoints_fishnet, highwayPoints_fishnet2, fishnetGraduate00,
+    fishnet, highwayPoints_fishnet,fishnetGraduate00,
     fishnetHHunit00,fishnetPopulation00,fishnetVacHH00,
     fishnetWhiteP00,fishnetPopulation20,fishnet_pop_change_00_20,aggregatedRasters,
     fishnetHHunit20, fishnetWhiteP20) %>%
   dplyr::select(lc_change, developed, forest, farm, wetlands, otherUndeveloped, slope,water,
                 total_population,total_graduate_degree_holders,total_housing_units,
-                total_vacant_households,total_white,total_population2020,pop_Change_00_20,distance_highways, distance_highways2, lagDevelopment, total_housing_units2020, total_white2020) %>%
+                total_vacant_households,total_white,total_population2020,pop_Change_00_20,distance_highways, lagDevelopment, total_housing_units2020, total_white2020) %>%
   st_join(studyAreaCounties) %>%
   mutate(NAME = ifelse(NAME == "Charlottesville", "Charlottesville", "Albemarle")) %>% 
-  mutate(developed19forlag = ifelse(lc_change == 1 & developed == 1, 0, developed)) %>%
+  mutate(developed19 = ifelse(lc_change == 1 & developed == 1, 0, developed)) %>%
   filter(water == 0) 
 
 studyAreaCounties <- studyAreaCounties %>% 
@@ -876,7 +849,7 @@ dat %>%
 ```
 
 <br>
-# 4. Predicting for 2019
+# 4. Predicting for 2010
 <br>
 In this section, six separate logistic regression models are estimated to predict development change between 2001 and 2019 - with each subsequent model more sophisticated then the last. To do so, the data is split into 50% training/test sets. Models are estimated on the training set.
 
@@ -1056,7 +1029,7 @@ Below, `lagDevelopment` is mutated to describe average distance to 2019 developm
 ```{r, warning = FALSE, message = FALSE}
 dat <-
   dat %>%
-  mutate(lagDevelopment = nn_function(xyC(.), xyC(filter(.,developed19forlag == 2)),2))
+  mutate(lagDevelopment = nn_function(xyC(.), xyC(filter(.,developed19 == 2)),2))
 ```
 
 Now to update population change. A new data frame, `countyPopulation_2040` is created which includes 2020 population counts and 2040 projections for each county in the study area. Population is plotted by year and by county. 
@@ -1227,10 +1200,7 @@ dat2 <- dat2 %>%
     mutate(water = water19) %>%
     mutate(otherUndeveloped = otherUndeveloped19) %>%
     mutate(total_housing_units = total_housing_units2020) %>%
-    mutate(total_white = total_white2020) %>% 
-#  New Highways
-    mutate(distance_highways = distance_highways2)
-
+    mutate(total_white = total_white2020)
 ```
 
 ## 6.2. Sensitive Land Cover Lost
