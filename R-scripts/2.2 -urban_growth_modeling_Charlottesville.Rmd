@@ -1418,10 +1418,10 @@ We stop short of actually allocating land to development. While our model is wel
 
 Next, we ran the same script with a new highways dataset upgrading an existing road connecting Charlottesville and Crozet to a highway to see how this new infrastructure might impact urban growth projections. Here are those results for Albemarle:
 
-![Albemarle County](https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/images/montgomery.png)
+![Albemarle County](https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/c351e88031af508ca19f108071b0e7008e4cc36c/graph/Allocation2.3A.jpeg)
 
 And here are the results for Charlottesville:
-![Charlottesville County](https://raw.githubusercontent.com/mafichman/CPLN_675/main/Week_14_15/images/montgomery.png)
 
+![Charlottesville County](https://raw.githubusercontent.com/Yingtong-Z/sprawl-forecasting/c351e88031af508ca19f108071b0e7008e4cc36c/graph/Allocation2.3C.jpeg)
 
-Html for this script is linked here: 
+Html for this script is linked [here](https://yingtong-z.github.io/sprawl-forecasting/R-scripts/2.3--urban_growth_modeling_Charlottesville.html)
