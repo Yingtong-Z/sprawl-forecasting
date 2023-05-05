@@ -775,7 +775,7 @@ dat <-
                 total_vacant_households,total_white,total_population2020,pop_Change_00_20,distance_highways, lagDevelopment, total_housing_units2020, total_white2020) %>%
   st_join(studyAreaCounties) %>%
   mutate(NAME = ifelse(NAME == "Charlottesville", "Charlottesville", "Albemarle")) %>% 
-  mutate(developed19 = ifelse(lc_change == 1 & developed == 1, 0, developed)) %>%
+  mutate(developed19lag = ifelse(lc_change == 1 & developed == 1, 0, developed)) %>%
   filter(water == 0) 
 
 studyAreaCounties <- studyAreaCounties %>% 
@@ -1028,7 +1028,7 @@ Below, `lagDevelopment` is mutated to describe average distance to 2019 developm
 ```{r, warning = FALSE, message = FALSE}
 dat <-
   dat %>%
-  mutate(lagDevelopment = nn_function(xyC(.), xyC(filter(.,developed19 == 2)),2))
+  mutate(lagDevelopment = nn_function(xyC(.), xyC(filter(.,developed19lag == 2)),2))
 ```
 
 Now to update population change. A new data frame, `countyPopulation_2040` is created which includes 2020 population counts and 2040 projections for each county in the study area. Population is plotted by year and by county. 
